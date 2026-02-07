@@ -44,7 +44,9 @@ export const DEFAULT_GENERAL_CONFIG = {
   checkboxStyle: "toggle",
   collapseDomainHistory: false,
   showUrls: false,
-  iconSource: "byteance"
+  iconSource: "byteance",
+  autoSyncEnabled: false,
+  syncInterval: 3600000 // 默认1小时
 };
 
 export const DEFAULT_THEME_CONFIG = {

@@ -257,7 +257,11 @@ async function decrypt(encryptedData: string, key: string, type: string): Promis
 }
 
 async function getConfig(): Promise<WebDAVConfig | null> {
-  return await storage.get("webdav_config");
+  const config = await storage.get("webdav_config");
+  if (typeof config === 'object' && config !== null) {
+    return config as WebDAVConfig;
+  }
+  return null;
 }
 
 function validateConfig(config: WebDAVConfig): boolean {
@@ -269,6 +273,40 @@ function createError(message: string, type: string, originalError?: any): never 
   (error as any).type = type;
   (error as any).originalError = originalError;
   throw error;
+}
+
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3, retryDelay = 1000): Promise<Response> {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      if (response.ok || response.status === 404) {
+        return response;
+      }
+      
+      if (response.status === 401 || response.status === 403) {
+        throw new Error("Authentication failed");
+      }
+      
+      throw new Error(`HTTP error ${response.status}`);
+    } catch (error: any) {
+      lastError = error;
+      
+      if (error.message === "Authentication failed") {
+        throw error;
+      }
+      
+      console.warn(`Attempt ${attempt + 1} failed: ${error.message}`);
+      
+      if (attempt < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
+      }
+    }
+  }
+  
+  throw lastError;
 }
 
 export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyncResult> {
@@ -302,7 +340,7 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
       content = JSON.stringify(merged);
     }
     
-    const response = await fetch(`${config.url.replace(/\/$/, "")}/${WEBDAV_FILENAME}`, {
+    const response = await fetchWithRetry(`${config.url.replace(/\/$/, "")}/${WEBDAV_FILENAME}`, {
       method: "PUT",
       headers: {
         "Authorization": `Basic ${btoa(`${config.username}:${config.password || ''}`)}`,
@@ -362,7 +400,7 @@ export async function syncFromCloud(): Promise<HistoryItem[]> {
       createError(ERROR_MESSAGES.NO_CONFIG, "config");
     }
 
-    const response = await fetch(`${config.url.replace(/\/$/, "")}/${WEBDAV_FILENAME}`, {
+    const response = await fetchWithRetry(`${config.url.replace(/\/$/, "")}/${WEBDAV_FILENAME}`, {
       method: "GET",
       headers: {
         "Authorization": `Basic ${btoa(`${config.username}:${config.password || ''}`)}`

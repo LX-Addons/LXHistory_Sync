@@ -26,18 +26,6 @@
   --text-light: #666666;
   --border-color: #e0e0e0;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  --primary-color: #4CAF50;
-  --secondary-color: #2196F3;
-  --error-color: #f44336;
-  --info-color: #2196F3;
-  --success-color: #4CAF50;
-  --warning-color: #ff9800;
-  --border-radius: 4px;
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 12px;
-  --spacing-lg: 16px;
-  --spacing-xl: 24px;
 }
 
 .dark-theme {
@@ -47,18 +35,6 @@
   --text-light: #b3b3b3;
   --border-color: #404040;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --primary-color: #4CAF50;
-  --secondary-color: #2196F3;
-  --error-color: #f44336;
-  --info-color: #2196F3;
-  --success-color: #4CAF50;
-  --warning-color: #ff9800;
-  --border-radius: 4px;
-  --spacing-xs: 4px;
-  --spacing-sm: 8px;
-  --spacing-md: 12px;
-  --spacing-lg: 16px;
-  --spacing-xl: 24px;
 }
 
 * {
@@ -168,10 +144,6 @@ h3 {
 
 .light-theme .action-button:hover {
   background-color: rgba(0, 0, 0, 0.1);
-}
-
-.dark-theme .action-button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
 }
 
 button {
@@ -323,10 +295,6 @@ input::placeholder {
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-.dark-theme .history-item:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
 .history-item-icon-container {
   width: 16px;
   height: 16px;
@@ -457,10 +425,6 @@ input::placeholder {
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-.dark-theme .domain-header:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
 .domain-icon {
   width: 16px;
   height: 16px;
@@ -519,10 +483,6 @@ input::placeholder {
   background-color: rgba(33, 150, 243, 0.1);
 }
 
-.dark-theme .domain-group.expanded .domain-header {
-  background-color: rgba(33, 150, 243, 0.05);
-}
-
 .domain-group.expanded .domain-name {
   color: var(--secondary-color);
 }
@@ -555,14 +515,6 @@ input::placeholder {
 
 .light-theme .search-box:focus {
   background-color: rgba(0, 0, 0, 0.1);
-}
-
-.dark-theme .search-box {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.dark-theme .search-box:focus {
-  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .search-box::placeholder {
@@ -743,10 +695,6 @@ input::placeholder {
   background-color: rgba(0, 0, 0, 0.02);
 }
 
-.dark-theme .settings-placeholder {
-  background-color: rgba(255, 255, 255, 0.02);
-}
-
 .settings-section form {
   background-color: rgba(255, 255, 255, 0.02);
   padding: var(--spacing-lg);
@@ -833,14 +781,6 @@ input::placeholder {
 }
 
 .light-theme .tab-button.active {
-  background-color: rgba(33, 150, 243, 0.1);
-}
-
-.dark-theme .tab-button:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.dark-theme .tab-button.active {
   background-color: rgba(33, 150, 243, 0.1);
 }
 
@@ -1301,10 +1241,6 @@ input::placeholder {
   background-color: rgba(0, 0, 0, 0.02);
 }
 
-.dark-theme .checkbox-preview {
-  background-color: rgba(255, 255, 255, 0.02);
-}
-
 .form-group {
   display: flex;
   flex-direction: column;
@@ -1330,24 +1266,4 @@ input::placeholder {
 
 .light-theme .settings-section select:focus {
   background-color: rgba(0, 0, 0, 0.1);
-}
-
-.dark-theme .settings-section form {
-  background-color: rgba(255, 255, 255, 0.02);
-}
-
-.dark-theme .settings-section input {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.dark-theme .settings-section input:focus {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.dark-theme .settings-section select {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.dark-theme .settings-section select:focus {
-  background-color: rgba(255, 255, 255, 0.1);
 }

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Virtuoso } from "react-virtuoso";
 import { Storage } from "@plasmohq/storage";
-import type { HistoryItem as HistoryItemType, WebDAVConfig, ThemeType, GeneralConfig } from "~common/types";
+import { Virtuoso } from "react-virtuoso";
+import type { HistoryItem as HistoryItemType, ThemeType, GeneralConfig, CheckboxStyleType, IconSourceType, WebDAVConfig } from "~common/types";
 import { getLocalHistory } from "~common/history";
 import { syncToCloud, syncFromCloud } from "~common/webdav";
-import HistoryItem from "~components/HistoryItem";
+import HistoryItemComponent from "~components/HistoryItem";
 import SyncStatus from "~components/SyncStatus";
-import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from "~store";
+import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG, SYNC_MESSAGES } from "~store";
 import "./style.css";
 
 interface GroupedHistoryItem {
@@ -34,8 +34,14 @@ const Popup: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState<{ message: string; type: "info" | "success" | "error" } | null>(null);
   const [hasWebDAVConfig, setHasWebDAVConfig] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [themeConfig, setThemeConfig] = useState<{ theme: ThemeType }>(DEFAULT_THEME_CONFIG);
-  const [generalConfig, setGeneralConfig] = useState<GeneralConfig>(DEFAULT_GENERAL_CONFIG);
+  const [themeConfig, setThemeConfig] = useState<{ theme: ThemeType }>({
+    theme: DEFAULT_THEME_CONFIG.theme as ThemeType
+  });
+  const [generalConfig, setGeneralConfig] = useState<GeneralConfig>({
+    ...DEFAULT_GENERAL_CONFIG,
+    checkboxStyle: DEFAULT_GENERAL_CONFIG.checkboxStyle as CheckboxStyleType,
+    iconSource: DEFAULT_GENERAL_CONFIG.iconSource as IconSourceType
+  });
   const [expandedDomains, setExpandedDomains] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -228,9 +234,12 @@ const Popup: React.FC = () => {
   const handleSyncToCloud = async () => {
     setSyncStatus({ message: "正在同步到云端...", type: "info" });
     try {
-      const result = await syncToCloud(historyItems);
-      if (result.success && result.items) {
-        setHistoryItems(result.items);
+      const rawHistoryItems = historyItems
+        .filter(item => item.type === "item")
+        .map(item => item.data as HistoryItemType);
+      
+      const result = await syncToCloud(rawHistoryItems);
+      if (result.success) {
         setSyncStatus({ message: result.message || "同步到云端成功！已合并数据。", type: "success" });
       } else {
         setSyncStatus({ message: result.error || "同步失败", type: "error" });
@@ -245,7 +254,9 @@ const Popup: React.FC = () => {
     setSyncStatus({ message: "正在从云端同步...", type: "info" });
     try {
       const remoteItems = await syncFromCloud();
-      setHistoryItems(remoteItems);
+      const groupedItems = groupHistoryByDate(remoteItems);
+      setAllHistoryItems(groupedItems);
+      setHistoryItems(groupedItems);
       setSyncStatus({ message: `从云端同步成功！获取到 ${remoteItems.length} 条记录。`, type: "success" });
     } catch (error: any) {
       setSyncStatus({ message: error.message || "同步失败", type: "error" });
@@ -302,7 +313,7 @@ const Popup: React.FC = () => {
               data={historyItems}
               itemContent={(index, item) => {
                 if (item.type === "date") {
-                  return <div className="date-group">{item.data}</div>;
+                  return <div className="date-group">{typeof item.data === 'string' ? item.data : JSON.stringify(item.data)}</div>;
                 } else if (item.type === "domain") {
                   const domainData = item.data as { domain: string; count: number };
                   const isExpanded = expandedDomains.has(item.id);
@@ -371,7 +382,7 @@ const Popup: React.FC = () => {
                       shouldShow = expandedDomains.has(parentDomainId);
                     }
                   }
-                  return shouldShow ? <HistoryItem item={item.data as HistoryItemType} showUrls={generalConfig.showUrls} iconSource={generalConfig.iconSource} /> : null;
+                  return shouldShow ? <HistoryItemComponent item={item.data as HistoryItemType} showUrls={generalConfig.showUrls} iconSource={generalConfig.iconSource} /> : null;
                 }
               }}
             />

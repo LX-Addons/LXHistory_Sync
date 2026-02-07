@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Storage } from "@plasmohq/storage";
-import type { WebDAVConfig, ThemeType, GeneralConfig } from "~common/types";
+import type { WebDAVConfig, ThemeType, GeneralConfig, CheckboxStyleType, IconSourceType } from "~common/types";
 import ConfigForm from "~components/ConfigForm";
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from "~store";
 import "./style.css";
@@ -20,9 +20,15 @@ const Options: React.FC = () => {
     }
   });
   const [status, setStatus] = useState("");
-  const [themeConfig, setThemeConfig] = useState<{ theme: ThemeType }>(DEFAULT_THEME_CONFIG);
+  const [themeConfig, setThemeConfig] = useState<{ theme: ThemeType }>({
+    theme: DEFAULT_THEME_CONFIG.theme as ThemeType
+  });
   const [themeStatus, setThemeStatus] = useState("");
-  const [generalConfig, setGeneralConfig] = useState<GeneralConfig>(DEFAULT_GENERAL_CONFIG);
+  const [generalConfig, setGeneralConfig] = useState<GeneralConfig>({
+    ...DEFAULT_GENERAL_CONFIG,
+    checkboxStyle: DEFAULT_GENERAL_CONFIG.checkboxStyle as CheckboxStyleType,
+    iconSource: DEFAULT_GENERAL_CONFIG.iconSource as IconSourceType
+  });
   const [generalStatus, setGeneralStatus] = useState("");
   const [activeTab, setActiveTab] = useState<TabType>("webdav");
 
@@ -274,6 +280,42 @@ const Options: React.FC = () => {
                       <option value="duckduckgo">DuckDuckGo (全球通用)</option>
                       <option value="letter">域名首字母 (无网络依赖)</option>
                       <option value="none">不显示图标</option>
+                    </select>
+                  </div>
+                  
+                  <div className="form-group">
+                    <label htmlFor="auto-sync-enabled">启用自动同步:</label>
+                    <input
+                      id="auto-sync-enabled"
+                      type="checkbox"
+                      checked={generalConfig.autoSyncEnabled}
+                      onChange={(e) => setGeneralConfig({ 
+                        ...generalConfig, 
+                        autoSyncEnabled: e.target.checked 
+                      })}
+                      className={getCheckboxClassName(generalConfig.checkboxStyle)}
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label htmlFor="sync-interval">同步间隔 (分钟):</label>
+                    <select
+                      id="sync-interval"
+                      value={generalConfig.syncInterval / 60000}
+                      onChange={(e) => setGeneralConfig({ 
+                        ...generalConfig, 
+                        syncInterval: parseInt(e.target.value) * 60000 
+                      })}
+                      disabled={!generalConfig.autoSyncEnabled}
+                    >
+                      <option value="15">15分钟</option>
+                      <option value="30">30分钟</option>
+                      <option value="60">1小时</option>
+                      <option value="120">2小时</option>
+                      <option value="240">4小时</option>
+                      <option value="360">6小时</option>
+                      <option value="720">12小时</option>
+                      <option value="1440">24小时</option>
                     </select>
                   </div>
                   

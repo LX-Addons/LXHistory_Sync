@@ -75,7 +75,7 @@ export interface ThemeConfig {
 
 export type CheckboxStyleType = "default" | "modern" | "minimal" | "classic" | "rounded" | "toggle";
 
-export type IconSourceType = "byteance" | "google" | "baidu" | "letter" | "none";
+export type IconSourceType = "byteance" | "google" | "baidu" | "duckduckgo" | "letter" | "none";
 
 export interface GeneralConfig {
   searchEnabled: boolean;
@@ -83,6 +83,8 @@ export interface GeneralConfig {
   collapseDomainHistory: boolean;
   showUrls: boolean;
   iconSource: IconSourceType;
+  autoSyncEnabled: boolean;
+  syncInterval: number;
 }
 
 export interface HistoryItemProps {
