@@ -23,7 +23,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
 
       - name: Install dependencies
         run: npm install
@@ -60,6 +59,9 @@ jobs:
             echo "✗ package.json not found"
             exit 1
           fi
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Get project version
         id: get_version
@@ -139,8 +141,7 @@ jobs:
           if [ -f "$ZIP_FILE" ]; then
             echo "✓ Zip file created: $ZIP_FILE"
             ls -la "$ZIP_FILE"
-            # Check zip file size
-            ZIP_SIZE=$(stat -c "%s" "$ZIP_FILE")
+            ZIP_SIZE=$(wc -c < "$ZIP_FILE")
             echo "✓ Zip file size: $ZIP_SIZE bytes"
             if [ "$ZIP_SIZE" -lt 1000 ]; then
               echo "⚠️ Zip file is very small, may be incomplete"
@@ -155,7 +156,9 @@ jobs:
         run: |
           echo "📁 Build artifacts:"
           ls -la build/
-          BUILD_DIR=$(find build -type d -name "*-*" | head -1)
+          VERSION=${{ steps.get_version.outputs.version }}
+          PROJECT_NAME=${{ steps.get_version.outputs.project_name }}
+          BUILD_DIR="build/${PROJECT_NAME}-${VERSION}"
           if [ -d "$BUILD_DIR" ]; then
             echo "📁 Production build:"
             ls -la "$BUILD_DIR"
@@ -222,27 +225,33 @@ jobs:
 
       - name: Create Release
         if: github.event_name == 'workflow_dispatch'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ steps.get_version.outputs.version }}
-          name: Release v${{ steps.get_version.outputs.version }}
-          body: |
-            ## LXHistory_Sync Release
-            
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          TAG_NAME="v${VERSION}"
+          
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "ℹ️ Tag $TAG_NAME already exists, skipping release creation"
+            echo "ℹ️ To create a new release, update the version in package.json"
+          else
+            echo "📦 Creating release for version $VERSION"
+            gh release create "$TAG_NAME" \
+              --title "Release v$VERSION" \
+              --notes "## LXHistory_Sync Release
+
             ### Version
-            ${{ steps.get_version.outputs.version }}
-            
+            $VERSION
+
             ### Changes
             - Manual build from GitHub Actions
             - Latest code changes
-            
+
             ### Files
             - Chrome extension zip file
-            - Build artifacts
-          files: |
-            build/*.zip
-          draft: false
-          prerelease: false
+            - Build artifacts" \
+              build/*.zip
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Summary
         run: |
