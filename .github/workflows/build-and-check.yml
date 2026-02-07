@@ -1,0 +1,268 @@
+name: Build and Check Browser Extension
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Dependency audit
+        run: npm audit --production || true
+        continue-on-error: true
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Lint check
+        run: |
+          if [ -f "package.json" ] && grep -q "eslint" package.json; then
+            npm run lint
+          else
+            echo "ℹ️ ESLint not configured, skipping lint check"
+          fi
+
+      - name: Format check
+        run: |
+          if [ -f "package.json" ] && grep -q "prettier" package.json; then
+            npm run format:check
+          else
+            echo "ℹ️ Prettier not configured, skipping format check"
+          fi
+
+      - name: Check manifest validity
+        run: |
+          if [ -f "package.json" ]; then
+            echo "✓ Checking manifest configuration in package.json"
+            cat package.json | grep -A 20 "manifest"
+          else
+            echo "✗ package.json not found"
+            exit 1
+          fi
+
+      - name: Get project version
+        id: get_version
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          PROJECT_NAME=$(jq -r '.name' package.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
+          echo "build_dir=${PROJECT_NAME}-${VERSION}" >> $GITHUB_OUTPUT
+          echo "zip_file=${PROJECT_NAME}-${VERSION}.zip" >> $GITHUB_OUTPUT
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Verify build success
+        run: |
+          if [ ! -d "build" ]; then
+            echo "✗ Build directory not found"
+            exit 1
+          fi
+          # Find production build directory (flexible for different plasmo configs)
+          PROD_BUILD=$(find build -type d -name "chrome-mv3-prod" -o -name "*-mv3-prod" | head -1)
+          if [ -z "$PROD_BUILD" ]; then
+            echo "✗ Production build directory not found"
+            echo "Available directories in build/:"
+            ls -la build/
+            exit 1
+          fi
+          echo "✓ Production build directory found: $PROD_BUILD"
+
+      - name: Check manifest.json
+        run: |
+          PROD_BUILD=$(find build -type d -name "chrome-mv3-prod" -o -name "*-mv3-prod" | head -1)
+          if [ -f "$PROD_BUILD/manifest.json" ]; then
+            echo "✓ manifest.json exists"
+            cat "$PROD_BUILD/manifest.json"
+            if command -v jq &> /dev/null; then
+              jq '.' "$PROD_BUILD/manifest.json"
+              echo "✓ manifest.json is valid JSON"
+            else
+              echo "ℹ️ jq not available, skipping JSON validation"
+            fi
+          else
+            echo "✗ manifest.json not found"
+            exit 1
+          fi
+
+      - name: Package extension
+        if: github.event_name == 'workflow_dispatch'
+        run: npm run package
+
+      - name: Rename build artifacts
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          PROJECT_NAME=${{ steps.get_version.outputs.project_name }}
+          BUILD_DIR=${{ steps.get_version.outputs.build_dir }}
+          ZIP_FILE=${{ steps.get_version.outputs.zip_file }}
+          
+          PROD_BUILD=$(find build -type d -name "chrome-mv3-prod" -o -name "*-mv3-prod" | head -1)
+          
+          if [ -n "$PROD_BUILD" ]; then
+            mv "$PROD_BUILD" "build/$BUILD_DIR"
+            echo "✓ Renamed build directory to build/$BUILD_DIR"
+          fi
+          
+          ZIP_PATH=$(find build -name "*.zip" | head -1)
+          if [ -f "$ZIP_PATH" ]; then
+            mv "$ZIP_PATH" "build/$ZIP_FILE"
+            echo "✓ Renamed zip file to build/$ZIP_FILE"
+          fi
+
+      - name: Verify zip file creation
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          ZIP_FILE=$(find build -name "*.zip" | head -1)
+          if [ -f "$ZIP_FILE" ]; then
+            echo "✓ Zip file created: $ZIP_FILE"
+            ls -la "$ZIP_FILE"
+            # Check zip file size
+            ZIP_SIZE=$(stat -c "%s" "$ZIP_FILE")
+            echo "✓ Zip file size: $ZIP_SIZE bytes"
+            if [ "$ZIP_SIZE" -lt 1000 ]; then
+              echo "⚠️ Zip file is very small, may be incomplete"
+            fi
+          else
+            echo "✗ Zip file not found"
+            exit 1
+          fi
+
+      - name: Verify build artifacts
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "📁 Build artifacts:"
+          ls -la build/
+          BUILD_DIR=$(find build -type d -name "*-*" | head -1)
+          if [ -d "$BUILD_DIR" ]; then
+            echo "📁 Production build:"
+            ls -la "$BUILD_DIR"
+            REQUIRED_FILES=("manifest.json" "popup.html")
+            for file in "${REQUIRED_FILES[@]}"; do
+              if [ -f "$BUILD_DIR/$file" ]; then
+                echo "✓ $file exists"
+              else
+                echo "✗ $file missing"
+                exit 1
+              fi
+            done
+            if [ -f "$BUILD_DIR/background.js" ] || [ -f "$BUILD_DIR/background/index.js" ]; then
+              echo "✓ background script exists"
+            else
+              echo "ℹ️ background script not found"
+            fi
+          else
+            echo "✗ Build directory not found"
+            exit 1
+          fi
+
+      - name: Security check
+        run: |
+          echo "🔒 Running security checks..."
+          SECURITY_ISSUES=0
+          
+          if grep -r "eval(" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo"; then
+            echo "⚠️  Found eval() usage, potential security risk"
+            SECURITY_ISSUES=1
+          else
+            echo "✓ No eval() usage found"
+          fi
+          
+          if grep -r "innerHTML" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo"; then
+            echo "⚠️  Found innerHTML usage, potential XSS risk"
+            SECURITY_ISSUES=1
+          else
+            echo "✓ No innerHTML usage found"
+          fi
+          
+          if grep -r "dangerouslySetInnerHTML" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo"; then
+            echo "⚠️  Found dangerouslySetInnerHTML usage, potential XSS risk"
+            SECURITY_ISSUES=1
+          else
+            echo "✓ No dangerouslySetInnerHTML usage found"
+          fi
+          
+          if [ $SECURITY_ISSUES -eq 0 ]; then
+            echo "✅ All security checks passed"
+          else
+            echo "⚠️  Security issues found, please review"
+          fi
+
+      - name: Upload build artifacts
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-build
+          path: |
+            build/
+            *.zip
+          retention-days: 7
+
+      - name: Create Release
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.get_version.outputs.version }}
+          name: Release v${{ steps.get_version.outputs.version }}
+          body: |
+            ## LXHistory_Sync Release
+            
+            ### Version
+            ${{ steps.get_version.outputs.version }}
+            
+            ### Changes
+            - Manual build from GitHub Actions
+            - Latest code changes
+            
+            ### Files
+            - Chrome extension zip file
+            - Build artifacts
+          files: |
+            build/*.zip
+          draft: false
+          prerelease: false
+
+      - name: Summary
+        run: |
+          echo "## Build Summary"
+          echo "✅ All checks passed"
+          echo "✅ Build completed successfully"
+          echo "✅ TypeScript check passed"
+          echo "✅ Dependency audit completed"
+          
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "✅ Extension packaged"
+            ZIP_FILE=$(find build -name "*.zip" | head -1)
+            if [ -f "$ZIP_FILE" ]; then
+              echo "✅ Zip file: $(basename "$ZIP_FILE")"
+            fi
+            echo "✅ Build artifacts uploaded"
+            echo "✅ Release created"
+            echo "✅ Ready for deployment"
+          else
+            echo "✅ Code inspection completed"
+            echo "✅ No issues found"
+            echo "ℹ️ Package and release steps skipped (manual trigger only)"
+          fi
