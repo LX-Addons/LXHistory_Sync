@@ -8,10 +8,14 @@ export interface HistoryItem {
 
 export type EncryptionType = "none" | "aes-256-cbc" | "aes-256-gcm" | "aes-256-ctr" | "chacha20-poly1305";
 
+export type KeyStrength = "weak" | "medium" | "strong";
+
 export interface EncryptionConfig {
   enabled: boolean;
   type: EncryptionType;
   key?: string;
+  salt?: string;
+  keyStrength?: KeyStrength;
 }
 
 export interface WebDAVConfig {
@@ -19,6 +23,8 @@ export interface WebDAVConfig {
   username: string;
   password?: string;
   encryption: EncryptionConfig;
+  isValid?: boolean;
+  lastValidated?: number;
 }
 
 export type SyncStatus = "info" | "success" | "error";
@@ -52,6 +58,7 @@ export interface CloudSyncResult {
   items?: HistoryItem[];
   error?: string;
   message?: string;
+  recovery?: string[];
 }
 
 export interface MergeOptions {
@@ -102,4 +109,20 @@ export interface ConfigFormProps {
   onConfigChange: (config: WebDAVConfig) => void;
   onSubmit: (e: React.FormEvent) => void;
   checkboxStyle?: CheckboxStyleType;
+}
+
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface SecurityConfig {
+  minKeyLength: number;
+  requireUppercase: boolean;
+  requireLowercase: boolean;
+  requireNumbers: boolean;
+  requireSpecialChars: boolean;
+  pbkdf2Iterations: number;
+  enforceHttps: boolean;
 }

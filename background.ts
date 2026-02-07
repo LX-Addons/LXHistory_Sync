@@ -1,18 +1,26 @@
 import { getLocalHistory } from "~common/history";
 import { syncToCloud } from "~common/webdav";
+import { setLogLevel, log } from "~common/webdav";
 
 let syncInterval: number | null = null;
 const DEFAULT_SYNC_INTERVAL = 60 * 60 * 1000; // 默认1小时
+let isSyncing = false;
 
 async function performScheduledSync() {
-  console.log("LXHistory_Sync: Performing scheduled sync");
+  if (isSyncing) {
+    log(3, "Scheduled sync already in progress, skipping");
+    return;
+  }
+  
+  isSyncing = true;
+  
   try {
+    log(1, "Performing scheduled sync");
     const settings = await chrome.storage.local.get("generalSettings");
     const syncEnabled = settings.generalSettings?.autoSyncEnabled ?? false;
-    const syncInterval = settings.generalSettings?.syncInterval ?? DEFAULT_SYNC_INTERVAL;
     
     if (!syncEnabled) {
-      console.log("LXHistory_Sync: Auto sync is disabled");
+      log(1, "Auto sync is disabled");
       return;
     }
     
@@ -20,7 +28,7 @@ async function performScheduledSync() {
     const { url, username, password, encryptionEnabled } = webDavSettings.webDavSettings || {};
     
     if (!url || !username || !password) {
-      console.log("LXHistory_Sync: WebDAV settings not configured");
+      log(1, "WebDAV settings not configured");
       return;
     }
     
@@ -28,11 +36,15 @@ async function performScheduledSync() {
     const rawHistoryItems = historyItems.map(item => item);
     
     const result = await syncToCloud(rawHistoryItems);
-    console.log("LXHistory_Sync: Scheduled sync completed:", result);
+    log(1, "Scheduled sync completed:", result);
     
-    await chrome.storage.local.set({ lastSyncTime: new Date().toISOString() });
+    if (result.success) {
+      await chrome.storage.local.set({ lastSyncTime: new Date().toISOString() });
+    }
   } catch (error) {
-    console.error("LXHistory_Sync: Scheduled sync failed:", error);
+    log(3, "Scheduled sync failed:", error);
+  } finally {
+    isSyncing = false;
   }
 }
 
@@ -59,12 +71,10 @@ function clearSyncTimer() {
 
 self.addEventListener("install", (event) => {
   console.log("LXHistory_Sync: Service Worker installed");
-  (event as any).skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   console.log("LXHistory_Sync: Service Worker activated");
-  (event as any).waitUntil((self as any).clients.claim());
   startSyncTimer();
   
   // 立即执行一次同步

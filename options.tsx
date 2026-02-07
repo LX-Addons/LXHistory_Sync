@@ -3,9 +3,10 @@ import { Storage } from "@plasmohq/storage";
 import type { WebDAVConfig, ThemeType, GeneralConfig, CheckboxStyleType, IconSourceType } from "~common/types";
 import ConfigForm from "~components/ConfigForm";
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from "~store";
+import { getMasterKey, setMasterPassword, clearMasterPassword, encryptData, decryptData } from "~common/webdav";
 import "./style.css";
 
-type TabType = "webdav" | "theme" | "general";
+type TabType = "webdav" | "theme" | "general" | "security";
 
 const storage = new Storage();
 
@@ -31,11 +32,18 @@ const Options: React.FC = () => {
   });
   const [generalStatus, setGeneralStatus] = useState("");
   const [activeTab, setActiveTab] = useState<TabType>("webdav");
+  const [masterPasswordStatus, setMasterPasswordStatus] = useState("");
+  const [masterPassword, setMasterPassword] = useState("");
+  const [masterPasswordConfirm, setMasterPasswordConfirm] = useState("");
+  const [masterPasswordError, setMasterPasswordError] = useState("");
+  const [showMasterPasswordForm, setShowMasterPasswordForm] = useState(false);
+  const [hasMasterPassword, setHasMasterPassword] = useState(false);
 
   useEffect(() => {
     loadConfig();
     loadThemeConfig();
     loadGeneralConfig();
+    checkMasterPasswordStatus();
   }, []);
 
   useEffect(() => {
@@ -59,7 +67,27 @@ const Options: React.FC = () => {
   const loadConfig = async () => {
     const savedConfig = await storage.get<WebDAVConfig>("webdav_config");
     if (savedConfig) {
-      setConfig(savedConfig);
+      const masterKey = await getMasterKey();
+      
+      if (masterKey) {
+        try {
+          const decryptedPassword = savedConfig.password ? await decryptData(savedConfig.password, masterKey) : undefined;
+          const decryptedKey = savedConfig.encryption?.key ? await decryptData(savedConfig.encryption.key, masterKey) : undefined;
+          
+          setConfig({
+            ...savedConfig,
+            password: decryptedPassword,
+            encryption: {
+              ...savedConfig.encryption,
+              key: decryptedKey
+            }
+          });
+        } catch {
+          setConfig(savedConfig);
+        }
+      } else {
+        setConfig(savedConfig);
+      }
     }
   };
 
@@ -75,6 +103,65 @@ const Options: React.FC = () => {
     if (savedGeneralConfig) {
       setGeneralConfig(savedGeneralConfig);
     }
+  };
+
+  const checkMasterPasswordStatus = async () => {
+    const masterKey = await getMasterKey();
+    setHasMasterPassword(masterKey !== null);
+  };
+  
+  const handleMasterPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (masterPassword !== masterPasswordConfirm) {
+      setMasterPasswordError("两次输入的主密码不一致");
+      return;
+    }
+    
+    if (masterPassword.length < 8) {
+      setMasterPasswordError("主密码长度至少为8个字符");
+      return;
+    }
+    
+    try {
+      await setMasterPassword(masterPassword);
+      setMasterPasswordError("");
+      setMasterPasswordStatus("主密码设置成功！");
+      setHasMasterPassword(true);
+      setShowMasterPasswordForm(false);
+      setMasterPassword("");
+      setMasterPasswordConfirm("");
+      setTimeout(() => {
+        setMasterPasswordStatus("");
+      }, 3000);
+    } catch {
+      setMasterPasswordError("设置主密码失败");
+    }
+  };
+  
+  const handleClearMasterPassword = async () => {
+    try {
+      await clearMasterPassword();
+      setMasterPasswordStatus("主密码已清除！");
+      setHasMasterPassword(false);
+      setTimeout(() => {
+        setMasterPasswordStatus("");
+      }, 3000);
+    } catch {
+      setMasterPasswordError("清除主密码失败");
+    }
+  };
+  
+  const handleShowMasterPasswordForm = () => {
+    setShowMasterPasswordForm(true);
+    setMasterPasswordError("");
+  };
+  
+  const handleHideMasterPasswordForm = () => {
+    setShowMasterPasswordForm(false);
+    setMasterPassword("");
+    setMasterPasswordConfirm("");
+    setMasterPasswordError("");
   };
 
   const getCheckboxClassName = (style: string) => {
@@ -134,7 +221,22 @@ const Options: React.FC = () => {
     e.preventDefault();
     setStatus("正在保存...");
     try {
-      await storage.set("webdav_config", config);
+      const masterKey = await getMasterKey();
+      
+      if (masterKey) {
+        const configToSave: WebDAVConfig = {
+          ...config,
+          password: config.password ? await encryptData(config.password, masterKey) : undefined,
+          encryption: {
+            ...config.encryption,
+            key: config.encryption.key ? await encryptData(config.encryption.key, masterKey) : undefined
+          }
+        };
+        await storage.set("webdav_config", configToSave);
+      } else {
+        await storage.set("webdav_config", config);
+      }
+      
       setStatus("保存成功！");
       setTimeout(() => {
         setStatus("");
@@ -175,13 +277,24 @@ const Options: React.FC = () => {
               >
                 通用设置
               </button>
+              <button 
+                className={`tab-button ${activeTab === "security" ? "active" : ""}`}
+                onClick={() => setActiveTab("security")}
+              >
+                安全设置
+              </button>
             </div>
           </div>
           
           <div className="tab-content">
             {activeTab === "webdav" && (
               <div className="settings-section">
-                <h2>WebDAV 配置</h2>
+                <div className="section-header">
+                  <h2>WebDAV 配置</h2>
+                  <p style={{ fontSize: "14px", color: "var(--text-light)" }}>
+                    配置您的WebDAV服务器以启用历史记录同步功能。
+                  </p>
+                </div>
                 <ConfigForm
                   config={config}
                   status={status}
@@ -194,7 +307,12 @@ const Options: React.FC = () => {
             
             {activeTab === "theme" && (
               <div className="settings-section">
-                <h2>主题设置</h2>
+                <div className="section-header">
+                  <h2>主题设置</h2>
+                  <p style={{ fontSize: "14px", color: "var(--text-light)" }}>
+                    自定义界面的外观和主题风格。
+                  </p>
+                </div>
                 <form onSubmit={handleSaveTheme} className="theme-form">
                   <div className="form-group">
                     <label htmlFor="theme-select">主题模式:</label>
@@ -221,7 +339,12 @@ const Options: React.FC = () => {
             
             {activeTab === "general" && (
               <div className="settings-section">
-                <h2>通用设置</h2>
+                <div className="section-header">
+                  <h2>通用设置</h2>
+                  <p style={{ fontSize: "14px", color: "var(--text-light)" }}>
+                    配置应用的各种通用选项和偏好设置。
+                  </p>
+                </div>
                 <form onSubmit={handleSaveGeneral} className="general-form">
                   <div className="form-group">
                     <label htmlFor="search-enabled">启用搜索框:</label>
@@ -369,6 +492,160 @@ const Options: React.FC = () => {
                     </div>
                   )}
                 </form>
+              </div>
+            )}
+            
+            {activeTab === "security" && (
+              <div className="settings-section">
+                <div className="section-header">
+                  <h2>安全设置</h2>
+                  <p style={{ fontSize: "14px", color: "var(--text-light)" }}>
+                    管理主密码以保护您的敏感数据安全。
+                  </p>
+                </div>
+                
+                {!showMasterPasswordForm ? (
+                  <div className="security-status">
+                    <div className="status-card">
+                      <div className="status-icon">
+                        {hasMasterPassword ? (
+                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                          </svg>
+                        ) : (
+                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" opacity="0.3" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="status-content">
+                        <h3>{hasMasterPassword ? "主密码已设置" : "主密码未设置"}</h3>
+                        <p style={{ fontSize: "14px", color: "var(--text-light)", marginTop: "8px" }}>
+                          {hasMasterPassword 
+                            ? "您的WebDAV凭证和加密密钥已受到主密码保护。"
+                            : "设置主密码以加密您的WebDAV凭证和加密密钥，确保数据安全。"}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="security-actions">
+                      {!hasMasterPassword ? (
+                        <button
+                          type="button"
+                          onClick={handleShowMasterPasswordForm}
+                          className="btn-primary"
+                          style={{ width: "100%" }}
+                        >
+                          设置主密码
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={handleShowMasterPasswordForm}
+                            className="btn-secondary"
+                            style={{ width: "100%", marginBottom: "var(--spacing-sm)" }}
+                          >
+                            修改主密码
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleClearMasterPassword}
+                            className="btn-error"
+                            style={{ width: "100%" }}
+                          >
+                            清除主密码
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    
+                    {masterPasswordStatus && (
+                      <div className={`message ${masterPasswordStatus.includes("成功") ? "message-success" : "message-error"}`}>
+                        {masterPasswordStatus}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <form onSubmit={handleMasterPasswordSubmit} className="master-password-form">
+                    <div className="form-header">
+                      <h3>{hasMasterPassword ? "修改主密码" : "设置主密码"}</h3>
+                      <button
+                        type="button"
+                        onClick={handleHideMasterPasswordForm}
+                        className="btn-close"
+                        style={{ 
+                          background: "transparent",
+                          border: "none",
+                          color: "var(--text-light)",
+                          fontSize: "20px",
+                          cursor: "pointer",
+                          padding: "4px"
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                    
+                    <div className="form-description">
+                      <p style={{ fontSize: "14px", color: "var(--text-light)" }}>
+                        主密码用于加密您的WebDAV凭证和加密密钥，请妥善保管。
+                        <br />
+                        主密码长度至少为8个字符，建议使用强密码。
+                      </p>
+                    </div>
+                    
+                    <div className="form-group">
+                      <label htmlFor="master-password">主密码:</label>
+                      <input
+                        id="master-password"
+                        type="password"
+                        value={masterPassword}
+                        onChange={(e) => setMasterPassword(e.target.value)}
+                        placeholder="请输入主密码（至少8个字符）"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="form-group">
+                      <label htmlFor="master-password-confirm">确认主密码:</label>
+                      <input
+                        id="master-password-confirm"
+                        type="password"
+                        value={masterPasswordConfirm}
+                        onChange={(e) => setMasterPasswordConfirm(e.target.value)}
+                        placeholder="请再次输入主密码"
+                        required
+                      />
+                    </div>
+                    
+                    {masterPasswordError && (
+                      <div className="message-error" style={{ fontSize: "12px", marginTop: "4px" }}>
+                        {masterPasswordError}
+                      </div>
+                    )}
+                    
+                    <div className="form-actions">
+                      <button
+                        type="button"
+                        onClick={handleHideMasterPasswordForm}
+                        className="btn-secondary"
+                        style={{ flex: 1 }}
+                      >
+                        取消
+                      </button>
+                      <button
+                        type="submit"
+                        className="btn-primary"
+                        style={{ flex: 1 }}
+                      >
+                        {hasMasterPassword ? "修改主密码" : "设置主密码"}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             )}
           </div>

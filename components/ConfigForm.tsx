@@ -1,5 +1,6 @@
-import React from "react";
-import type { WebDAVConfig, EncryptionType, CheckboxStyleType } from "~common/types";
+import React, { useState } from "react";
+import type { WebDAVConfig, EncryptionType, CheckboxStyleType, KeyStrength } from "~common/types";
+import { calculateKeyStrength, validateUrl, validatePassword, validateEncryptionKey } from "~common/webdav";
 
 interface ConfigFormProps {
   config: WebDAVConfig;
@@ -10,6 +11,9 @@ interface ConfigFormProps {
 }
 
 const ConfigForm: React.FC<ConfigFormProps> = ({ config, status, onConfigChange, onSubmit, checkboxStyle = "default" }) => {
+  const [keyStrength, setKeyStrength] = useState<KeyStrength>("weak");
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  
   const getCheckboxClassName = (style: string) => {
     switch (style) {
       case "modern":
@@ -26,19 +30,114 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, status, onConfigChange,
         return "custom-checkbox";
     }
   };
+  
+  const getStrengthColor = (strength: KeyStrength): string => {
+    switch (strength) {
+      case "weak":
+        return "#f44336";
+      case "medium":
+        return "#ff9800";
+      case "strong":
+        return "#4CAF50";
+      default:
+        return "#9e9e9e";
+    }
+  };
+  
+  const getStrengthText = (strength: KeyStrength): string => {
+    switch (strength) {
+      case "weak":
+        return "弱";
+      case "medium":
+        return "中";
+      case "strong":
+        return "强";
+      default:
+        return "未知";
+    }
+  };
+  
+  const handleUrlChange = (value: string) => {
+    const validation = validateUrl(value);
+    setValidationErrors(prev => ({
+      ...prev,
+      url: validation.isValid ? "" : validation.error || ""
+    }));
+    onConfigChange({ ...config, url: value });
+  };
+  
+  const handlePasswordChange = (value: string) => {
+    const validation = validatePassword(value);
+    setValidationErrors(prev => ({
+      ...prev,
+      password: validation.isValid ? "" : validation.error || ""
+    }));
+    onConfigChange({ ...config, password: value });
+  };
+  
+  const handleKeyChange = (value: string) => {
+    const validation = validateEncryptionKey(value);
+    setKeyStrength(validation.strength);
+    setValidationErrors(prev => ({
+      ...prev,
+      encryptionKey: validation.isValid ? "" : validation.error || ""
+    }));
+    onConfigChange({ 
+      ...config, 
+      encryption: { 
+        ...config.encryption, 
+        key: value,
+        keyStrength: validation.strength
+      } 
+    });
+  };
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const urlValidation = validateUrl(config.url);
+    const passwordValidation = validatePassword(config.password || '');
+    const keyValidation = config.encryption.enabled && config.encryption.key 
+      ? validateEncryptionKey(config.encryption.key)
+      : { isValid: true, strength: 'weak' as KeyStrength };
+    
+    const newErrors: Record<string, string> = {};
+    if (!urlValidation.isValid) {
+      newErrors.url = urlValidation.error || "";
+    }
+    if (!passwordValidation.isValid) {
+      newErrors.password = passwordValidation.error || "";
+    }
+    if (config.encryption.enabled && !keyValidation.isValid) {
+      newErrors.encryptionKey = keyValidation.error || "";
+    }
+    
+    setValidationErrors(newErrors);
+    
+    if (Object.keys(newErrors).length === 0) {
+      onSubmit(e);
+    }
+  };
+  
   return (
-    <form onSubmit={onSubmit}>
+    <form onSubmit={handleSubmit}>
       <div className="form-group">
         <label htmlFor="url">WebDAV 服务器地址:</label>
         <input
           id="url"
           type="url"
           value={config.url}
-          onChange={(e) => onConfigChange({ ...config, url: e.target.value })}
+          onChange={(e) => handleUrlChange(e.target.value)}
           placeholder="https://dav.jianguoyun.com/dav/"
           required
         />
+        {validationErrors.url && (
+          <div className="message-error" style={{ fontSize: "12px", marginTop: "4px" }}>
+            {validationErrors.url}
+          </div>
+        )}
       </div>
+      
       <div className="form-group">
         <label htmlFor="username">用户名:</label>
         <input
@@ -49,15 +148,21 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, status, onConfigChange,
           required
         />
       </div>
+      
       <div className="form-group">
         <label htmlFor="password">密码/应用令牌:</label>
         <input
           id="password"
           type="password"
           value={config.password || ""}
-          onChange={(e) => onConfigChange({ ...config, password: e.target.value })}
+          onChange={(e) => handlePasswordChange(e.target.value)}
           required
         />
+        {validationErrors.password && (
+          <div className="message-error" style={{ fontSize: "12px", marginTop: "4px" }}>
+            {validationErrors.password}
+          </div>
+        )}
       </div>
       
       <div className="form-group">
@@ -98,22 +203,48 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, status, onConfigChange,
               <option value="aes-256-cbc">AES-256-CBC (传统块加密)</option>
             </select>
           </div>
+          
           <div className="form-group">
             <label htmlFor="encryption-key">加密密钥:</label>
             <input
               id="encryption-key"
               type="password"
               value={config.encryption.key || ""}
-              onChange={(e) => onConfigChange({ 
-                ...config, 
-                encryption: { 
-                  ...config.encryption, 
-                  key: e.target.value 
-                } 
-              })}
+              onChange={(e) => handleKeyChange(e.target.value)}
               placeholder="请输入加密密钥（建议使用强密码）"
               required
             />
+            {config.encryption.key && (
+              <div style={{ display: "flex", alignItems: "center", marginTop: "4px", gap: "8px" }}>
+                <span style={{ fontSize: "12px", color: "var(--text-light)" }}>密钥强度：</span>
+                <span style={{ 
+                  fontSize: "12px", 
+                  fontWeight: "bold",
+                  color: getStrengthColor(keyStrength)
+                }}>
+                  {getStrengthText(keyStrength)}
+                </span>
+                <div style={{ 
+                  flex: 1, 
+                  height: "4px", 
+                  backgroundColor: "var(--border-color)",
+                  borderRadius: "2px",
+                  overflow: "hidden"
+                }}>
+                  <div style={{ 
+                    width: keyStrength === "weak" ? "33%" : keyStrength === "medium" ? "66%" : "100%",
+                    height: "100%",
+                    backgroundColor: getStrengthColor(keyStrength),
+                    transition: "width 0.3s ease, background-color 0.3s ease"
+                  }} />
+                </div>
+              </div>
+            )}
+            {validationErrors.encryptionKey && (
+              <div className="message-error" style={{ fontSize: "12px", marginTop: "4px" }}>
+                {validationErrors.encryptionKey}
+              </div>
+            )}
           </div>
         </>
       )}
