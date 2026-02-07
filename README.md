@@ -171,12 +171,6 @@ LXHistory_Sync/
 
 本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
 
-## 联系方式
-
-如果您有任何问题或建议，欢迎通过以下方式联系我们：
-
-- Issue 跟踪器：[项目 GitHub 仓库](https://github.com/yourusername/LXHistory_Sync/issues)
-
 ---
 
 **隐私声明**：本扩展仅用于个人数据备份和同步，所有数据仅在您的设备和您指定的 WebDAV 服务器之间传输，不会收集或上传任何数据到第三方服务器。使用本扩展即表示您同意承担使用风险。
