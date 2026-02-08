@@ -728,7 +728,7 @@ function validateAllConfig(config: WebDAVConfig): CloudSyncResult | null {
     return createValidationResult(passwordValidation.error || "配置无效");
   }
 
-  if (config.encryption && config.encryption.enabled && config.encryption.key) {
+  if (config.encryption?.enabled && config.encryption?.key) {
     const keyValidation = validateEncryptionKey(config.encryption.key);
     if (!keyValidation.isValid) {
       return createValidationResult(keyValidation.error || "配置无效");
@@ -739,7 +739,7 @@ function validateAllConfig(config: WebDAVConfig): CloudSyncResult | null {
 }
 
 async function prepareUploadContent(merged: HistoryItem[], config: WebDAVConfig): Promise<{ content: string; contentType: string }> {
-  if (config.encryption && config.encryption.enabled && config.encryption.key) {
+  if (config.encryption?.enabled && config.encryption?.key) {
     const salt = config.encryption.salt || generateSalt();
     const content = await encrypt(merged, config.encryption.key, config.encryption.type, salt);
     return { content, contentType: "application/octet-stream" };
@@ -776,7 +776,7 @@ function handleHttpError(response: Response): CloudSyncResult {
 }
 
 async function parseResponseData(response: Response, config: WebDAVConfig): Promise<any> {
-  if (config.encryption && config.encryption.enabled && config.encryption.key) {
+  if (config.encryption?.enabled && config.encryption?.key) {
     const blob = await response.blob();
     const arrayBuffer = await blob.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
@@ -836,7 +836,7 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
     const response = await fetchWithRetry(`${config.url.replace(/\/$/, "")}/${WEBDAV_FILENAME}`, {
       method: "PUT",
       headers: {
-        "Authorization": `Basic ${btoa(`${config.username}:${config.password || ''}`)}`,
+        "Authorization": `Basic ${btoa(config.username + ":" + (config.password || ''))}`,
         "Content-Type": contentType
       },
       body: content
@@ -892,7 +892,7 @@ export async function syncFromCloud(): Promise<HistoryItem[]> {
     const response = await fetchWithRetry(`${config.url.replace(/\/$/, "")}/${WEBDAV_FILENAME}`, {
       method: "GET",
       headers: {
-        "Authorization": `Basic ${btoa(`${config.username}:${config.password || ''}`)}`
+        "Authorization": `Basic ${btoa(config.username + ":" + (config.password || ''))}`
       }
     });
 
