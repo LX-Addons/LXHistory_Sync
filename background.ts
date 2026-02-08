@@ -25,7 +25,7 @@ async function performScheduledSync() {
     }
     
     const webDavSettings = await chrome.storage.local.get("webDavSettings");
-    const { url, username, password, encryptionEnabled } = webDavSettings.webDavSettings || {};
+    const { url, username, password } = webDavSettings.webDavSettings || {};
     
     if (!url || !username || !password) {
       log(1, "WebDAV settings not configured");
