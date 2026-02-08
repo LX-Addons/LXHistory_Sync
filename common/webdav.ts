@@ -1,7 +1,7 @@
 import { Storage } from "@plasmohq/storage";
-import type { HistoryItem, WebDAVConfig, AppError, CloudSyncResult, KeyStrength } from "./types";
+import type { HistoryItem, WebDAVConfig, CloudSyncResult, KeyStrength } from "./types";
 import { mergeHistory } from "./history";
-import { ERROR_MESSAGES, WEBDAV_FILENAME } from "~store";
+import { WEBDAV_FILENAME } from "~store";
 
 const storage = new Storage();
 const PBKDF2_ITERATIONS = 300000;
