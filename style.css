@@ -279,12 +279,13 @@ input::placeholder {
 }
 
 .history-item {
-  padding: 4px var(--spacing-md);
+  height: 36px;
+  padding: 0 var(--spacing-md);
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
   transition: background-color 0.2s ease;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .history-item:hover {
@@ -300,7 +301,6 @@ input::placeholder {
   height: 16px;
   margin-right: var(--spacing-sm);
   flex-shrink: 0;
-  margin-top: 1px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -361,7 +361,6 @@ input::placeholder {
 .history-item-title {
   font-weight: 500;
   font-size: 12px;
-  margin-bottom: 1px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -373,16 +372,14 @@ input::placeholder {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-bottom: 1px;
 }
 
 .history-item-time {
   color: var(--text-light);
-  font-size: 9px;
+  font-size: 11px;
   flex-shrink: 0;
   margin-left: var(--spacing-sm);
   white-space: nowrap;
-  padding-top: 1px;
 }
 
 .date-group {
