@@ -11,7 +11,7 @@ const MASTER_KEY_SALT = "LXHistory_Sync_Master_Key_Salt";
 async function getSessionConfig(): Promise<WebDAVConfig | null> {
   try {
     const sessionConfig = await chrome.storage.session.get("webdav_config");
-    if (sessionConfig && sessionConfig.webdav_config) {
+    if (sessionConfig?.webdav_config) {
       return sessionConfig.webdav_config as WebDAVConfig;
     }
   } catch {
