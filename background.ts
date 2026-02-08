@@ -15,16 +15,16 @@ async function performScheduledSync() {
   
   try {
     log(1, "Performing scheduled sync");
-    const settings = await chrome.storage.local.get("generalSettings");
-    const syncEnabled = settings.generalSettings?.autoSyncEnabled ?? false;
+    const settings = await chrome.storage.local.get("general_config");
+    const syncEnabled = settings.general_config?.autoSyncEnabled ?? false;
     
     if (!syncEnabled) {
       log(1, "Auto sync is disabled");
       return;
     }
     
-    const webDavSettings = await chrome.storage.local.get("webDavSettings");
-    const { url, username, password } = webDavSettings.webDavSettings || {};
+    const webDavSettings = await chrome.storage.local.get("webdav_config");
+    const { url, username, password } = webDavSettings.webdav_config || {};
     
     if (!url || !username || !password) {
       log(1, "WebDAV settings not configured");
@@ -50,9 +50,9 @@ async function performScheduledSync() {
 function startSyncTimer() {
   clearSyncTimer();
   
-  chrome.storage.local.get("generalSettings", (settings) => {
-    const interval = settings.generalSettings?.syncInterval ?? DEFAULT_SYNC_INTERVAL;
-    const syncEnabled = settings.generalSettings?.autoSyncEnabled ?? false;
+  chrome.storage.local.get("general_config", (settings) => {
+    const interval = settings.general_config?.syncInterval ?? DEFAULT_SYNC_INTERVAL;
+    const syncEnabled = settings.general_config?.autoSyncEnabled ?? false;
     
     if (syncEnabled) {
       console.log(`LXHistory_Sync: Starting sync timer with interval ${interval}ms`);
@@ -76,7 +76,6 @@ self.addEventListener("activate", (event) => {
   console.log("LXHistory_Sync: Service Worker activated");
   startSyncTimer();
   
-  // 立即执行一次同步
   performScheduledSync();
 });
 
@@ -91,7 +90,7 @@ self.addEventListener("message", (event) => {
 });
 
 self.addEventListener("storage", (event) => {
-  if (event.key === "generalSettings" || event.key === "webDavSettings") {
+  if (event.key === "general_config" || event.key === "webdav_config") {
     console.log("LXHistory_Sync: Settings changed, restarting sync timer");
     startSyncTimer();
   }

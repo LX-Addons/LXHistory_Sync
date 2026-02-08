@@ -43,10 +43,6 @@ enum LogLevel {
 
 let currentLogLevel = LogLevel.INFO;
 
-function setLogLevel(level: LogLevel): void {
-  currentLogLevel = level;
-}
-
 function log(level: LogLevel, message: string, data?: any): void {
   if (level >= currentLogLevel) {
     const timestamp = new Date().toISOString();
@@ -63,23 +59,6 @@ function log(level: LogLevel, message: string, data?: any): void {
       console.log(logMessage, data);
     }
   }
-}
-
-function maskSensitiveData(data: string): string {
-  if (!data || data.length < 4) {
-    return data;
-  }
-  
-  if (data.includes("://")) {
-    try {
-      const url = new URL(data);
-      return `${url.protocol}//${url.hostname}${url.pathname}`;
-    } catch {
-      return "***";
-    }
-  }
-  
-  return `${data.substring(0, 2)}***${data.substring(data.length - 2)}`;
 }
 
 enum ErrorType {
@@ -918,4 +897,4 @@ export async function syncFromCloud(): Promise<HistoryItem[]> {
   }
 }
 
-export { calculateKeyStrength, validateUrl, validatePassword, validateEncryptionKey, getMasterKey, setMasterPassword, clearMasterPassword, setLogLevel, log, maskSensitiveData, encryptData, decryptData };
+export { calculateKeyStrength, validateUrl, validatePassword, validateEncryptionKey, getMasterKey, setMasterPassword, clearMasterPassword, log, encryptData, decryptData };

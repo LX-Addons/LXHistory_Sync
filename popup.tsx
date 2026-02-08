@@ -6,7 +6,7 @@ import { getLocalHistory } from "~common/history";
 import { syncToCloud, syncFromCloud } from "~common/webdav";
 import HistoryItemComponent from "~components/HistoryItem";
 import SyncStatus from "~components/SyncStatus";
-import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG, SYNC_MESSAGES } from "~store";
+import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from "~store";
 import "./style.css";
 
 interface GroupedHistoryItem {

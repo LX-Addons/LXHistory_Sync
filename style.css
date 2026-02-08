@@ -1244,6 +1244,13 @@ input::placeholder {
   margin-bottom: var(--spacing-md);
 }
 
+.label-text {
+  font-weight: 500;
+  color: var(--text-color);
+  font-size: 14px;
+  margin-bottom: var(--spacing-xs);
+}
+
 .light-theme .settings-section form {
   background-color: rgba(0, 0, 0, 0.02);
 }

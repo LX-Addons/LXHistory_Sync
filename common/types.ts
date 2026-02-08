@@ -34,44 +34,12 @@ export interface SyncMessage {
   type: SyncStatus;
 }
 
-export type ErrorType = "config" | "sync" | "load" | "save" | "validation" | "network";
-
-export interface AppError {
-  message: string;
-  type: ErrorType;
-  originalError?: any;
-}
-
-export interface SyncOptions {
-  maxItems?: number;
-  forceSync?: boolean;
-}
-
-export interface WebDAVResponse {
-  status: number;
-  data?: any;
-  error?: string;
-}
-
 export interface CloudSyncResult {
   success: boolean;
   items?: HistoryItem[];
   error?: string;
   message?: string;
   recovery?: string[];
-}
-
-export interface MergeOptions {
-  preferLocal?: boolean;
-  maxItems?: number;
-}
-
-export interface AppState {
-  historyItems: HistoryItem[];
-  isLoading: boolean;
-  syncStatus: SyncMessage | null;
-  error: AppError | null;
-  config: WebDAVConfig;
 }
 
 export type ThemeType = "auto" | "light" | "dark";
@@ -109,20 +77,4 @@ export interface ConfigFormProps {
   onConfigChange: (config: WebDAVConfig) => void;
   onSubmit: (e: React.FormEvent) => void;
   checkboxStyle?: CheckboxStyleType;
-}
-
-export interface ValidationResult {
-  isValid: boolean;
-  errors: string[];
-  warnings: string[];
-}
-
-export interface SecurityConfig {
-  minKeyLength: number;
-  requireUppercase: boolean;
-  requireLowercase: boolean;
-  requireNumbers: boolean;
-  requireSpecialChars: boolean;
-  pbkdf2Iterations: number;
-  enforceHttps: boolean;
 }
