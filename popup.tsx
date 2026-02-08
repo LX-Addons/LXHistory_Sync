@@ -417,7 +417,7 @@ const Popup: React.FC = () => {
               data={historyItems}
               itemContent={(index, item) => {
                 if (item.type === "date") {
-                  return <DateGroupItem date={typeof item.data === 'string' ? item.data : JSON.stringify(item.data)} />;
+                  return <DateGroupItem date={JSON.stringify(item.data)} />;
                 } else if (item.type === "domain") {
                   const domainData = item.data as { domain: string; count: number };
                   return (
