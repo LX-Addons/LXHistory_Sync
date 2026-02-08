@@ -286,6 +286,8 @@ input::placeholder {
   transition: background-color 0.2s ease;
   display: flex;
   align-items: center;
+  background-color: var(--card-background);
+  width: 100%;
 }
 
 .history-item:hover {
@@ -356,6 +358,8 @@ input::placeholder {
 .history-item-content {
   flex: 1;
   min-width: 0;
+  max-width: calc(100% - 60px);
+  overflow: hidden;
 }
 
 .history-item-title {
@@ -391,6 +395,8 @@ input::placeholder {
   color: var(--text-light);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .light-theme .date-group {
@@ -404,6 +410,9 @@ input::placeholder {
 .domain-group {
   padding: var(--spacing-xs) 0;
   border-bottom: 1px solid var(--border-color);
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--card-background);
 }
 
 .domain-header {
@@ -571,6 +580,11 @@ input::placeholder {
 
 .history-list-container :global(.virtuoso-item-list) {
   width: 100%;
+}
+
+.history-list-container :global(.virtuoso-item-list > *) {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .sync-buttons-container {
