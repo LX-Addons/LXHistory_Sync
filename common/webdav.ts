@@ -672,6 +672,128 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3,
   throw lastError;
 }
 
+async function loadAndDecryptConfig(masterKey: CryptoKey): Promise<WebDAVConfig | null> {
+  const sessionConfig = await getSessionConfig();
+  if (sessionConfig) {
+    return sessionConfig;
+  }
+  
+  const storedConfig = await getConfig();
+  if (!storedConfig) {
+    return null;
+  }
+  
+  const encryptedPassword = storedConfig.password || "";
+  const encryptedKey = storedConfig.encryption?.key || "";
+  
+  if (encryptedPassword) {
+    storedConfig.password = await decryptData(encryptedPassword, masterKey);
+  }
+  
+  if (encryptedKey) {
+    storedConfig.encryption = {
+      ...storedConfig.encryption,
+      key: await decryptData(encryptedKey, masterKey),
+      enabled: storedConfig.encryption.enabled,
+      type: storedConfig.encryption.type
+    };
+  }
+  
+  await setSessionConfig(storedConfig);
+  return storedConfig;
+}
+
+function createValidationResult(errorMessage: string): CloudSyncResult {
+  const recovery = getErrorRecovery(new Error(errorMessage));
+  return {
+    success: false,
+    error: recovery.message,
+    message: recovery.message,
+    recovery: recovery.actions
+  };
+}
+
+function validateAllConfig(config: WebDAVConfig): CloudSyncResult | null {
+  if (!config || !validateConfig(config)) {
+    return createValidationResult("配置未设置");
+  }
+
+  const urlValidation = validateUrl(config.url);
+  if (!urlValidation.isValid) {
+    return createValidationResult(urlValidation.error || "配置无效");
+  }
+
+  const passwordValidation = validatePassword(config.password || '');
+  if (!passwordValidation.isValid) {
+    return createValidationResult(passwordValidation.error || "配置无效");
+  }
+
+  if (config.encryption && config.encryption.enabled && config.encryption.key) {
+    const keyValidation = validateEncryptionKey(config.encryption.key);
+    if (!keyValidation.isValid) {
+      return createValidationResult(keyValidation.error || "配置无效");
+    }
+  }
+
+  return null;
+}
+
+async function prepareUploadContent(merged: HistoryItem[], config: WebDAVConfig): Promise<{ content: string; contentType: string }> {
+  if (config.encryption && config.encryption.enabled && config.encryption.key) {
+    const salt = config.encryption.salt || generateSalt();
+    const content = await encrypt(merged, config.encryption.key, config.encryption.type, salt);
+    return { content, contentType: "application/octet-stream" };
+  }
+  
+  return {
+    content: JSON.stringify(merged),
+    contentType: "application/json"
+  };
+}
+
+function handleHttpError(response: Response): CloudSyncResult {
+  let errorMessage = "同步失败";
+  
+  switch (response.status) {
+    case 401:
+      errorMessage = "认证失败，请检查用户名和密码";
+      break;
+    case 404:
+      errorMessage = "WebDAV 服务器路径不存在";
+      break;
+    case 403:
+      errorMessage = "没有权限访问 WebDAV 服务器";
+      break;
+    case 500:
+      errorMessage = "WebDAV 服务器内部错误";
+      break;
+    case 0:
+      errorMessage = "无法连接到 WebDAV 服务器，请检查网络连接";
+      break;
+  }
+  
+  return createValidationResult(errorMessage);
+}
+
+async function parseResponseData(response: Response, config: WebDAVConfig): Promise<any> {
+  if (config.encryption && config.encryption.enabled && config.encryption.key) {
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const encryptedData = btoa(String.fromCharCode(...uint8Array));
+    return await decrypt(encryptedData, config.encryption.key, config.encryption.type);
+  }
+  
+  return await response.json();
+}
+
+function throwConfigError(errorMessage: string): never {
+  const recovery = getErrorRecovery(new Error(errorMessage));
+  const error = new Error(recovery.message);
+  (error as any).recovery = recovery.actions;
+  throw error;
+}
+
 export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyncResult> {
   let config: WebDAVConfig | null = null;
   let masterKey: CryptoKey | null = null;
@@ -686,86 +808,19 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
       };
     }
     
-    const sessionConfig = await getSessionConfig();
-    if (sessionConfig) {
-      config = sessionConfig;
-    } else {
-      const storedConfig = await getConfig();
-      if (storedConfig) {
-        try {
-          const encryptedPassword = storedConfig.password || "";
-          const encryptedKey = storedConfig.encryption?.key || "";
-          
-          if (encryptedPassword) {
-            storedConfig.password = await decryptData(encryptedPassword, masterKey);
-          }
-          
-          if (encryptedKey) {
-            storedConfig.encryption = {
-              ...storedConfig.encryption,
-              key: await decryptData(encryptedKey, masterKey),
-              enabled: storedConfig.encryption.enabled,
-              type: storedConfig.encryption.type
-            };
-          }
-          
-          config = storedConfig;
-          await setSessionConfig(config);
-        } catch {
-          const recovery = getErrorRecovery(new Error("无法解密配置，请检查主密码"));
-          return {
-            success: false,
-            error: recovery.message,
-            message: recovery.message,
-            recovery: recovery.actions
-          };
-        }
-      }
+    try {
+      config = await loadAndDecryptConfig(masterKey);
+    } catch {
+      return createValidationResult("无法解密配置，请检查主密码");
     }
     
-    if (!config || !validateConfig(config)) {
-      const recovery = getErrorRecovery(new Error("配置未设置"));
-      return {
-        success: false,
-        error: recovery.message,
-        message: recovery.message,
-        recovery: recovery.actions
-      };
+    if (!config) {
+      return createValidationResult("配置未设置");
     }
-
-    const urlValidation = validateUrl(config.url);
-    if (!urlValidation.isValid) {
-      const recovery = getErrorRecovery(new Error(urlValidation.error || "配置无效"));
-      return {
-        success: false,
-        error: recovery.message,
-        message: recovery.message,
-        recovery: recovery.actions
-      };
-    }
-
-    const passwordValidation = validatePassword(config.password || '');
-    if (!passwordValidation.isValid) {
-      const recovery = getErrorRecovery(new Error(passwordValidation.error || "配置无效"));
-      return {
-        success: false,
-        error: recovery.message,
-        message: recovery.message,
-        recovery: recovery.actions
-      };
-    }
-
-    if (config.encryption && config.encryption.enabled && config.encryption.key) {
-      const keyValidation = validateEncryptionKey(config.encryption.key);
-      if (!keyValidation.isValid) {
-        const recovery = getErrorRecovery(new Error(keyValidation.error || "配置无效"));
-        return {
-          success: false,
-          error: recovery.message,
-          message: recovery.message,
-          recovery: recovery.actions
-        };
-      }
+    
+    const validationResult = validateAllConfig(config);
+    if (validationResult) {
+      return validationResult;
     }
 
     let remoteHistory: HistoryItem[] = [];
@@ -776,19 +831,7 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
     }
 
     const merged = await mergeHistory(localHistory, remoteHistory);
-
-    let content: string;
-    let contentType = "application/json";
-    let salt: string | undefined;
-    
-    if (config.encryption && config.encryption.enabled && config.encryption.key) {
-      const keyValidation = validateEncryptionKey(config.encryption.key);
-      salt = config.encryption.salt || generateSalt();
-      content = await encrypt(merged, config.encryption.key, config.encryption.type, salt);
-      contentType = "application/octet-stream";
-    } else {
-      content = JSON.stringify(merged);
-    }
+    const { content, contentType } = await prepareUploadContent(merged, config);
     
     const response = await fetchWithRetry(`${config.url.replace(/\/$/, "")}/${WEBDAV_FILENAME}`, {
       method: "PUT",
@@ -800,33 +843,7 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
     });
 
     if (!response.ok) {
-      let errorMessage = "同步失败";
-      
-      switch (response.status) {
-        case 401:
-          errorMessage = "认证失败，请检查用户名和密码";
-          break;
-        case 404:
-          errorMessage = "WebDAV 服务器路径不存在";
-          break;
-        case 403:
-          errorMessage = "没有权限访问 WebDAV 服务器";
-          break;
-        case 500:
-          errorMessage = "WebDAV 服务器内部错误";
-          break;
-        case 0:
-          errorMessage = "无法连接到 WebDAV 服务器，请检查网络连接";
-          break;
-      }
-      
-      const recovery = getErrorRecovery(new Error(errorMessage));
-      return {
-        success: false,
-        error: recovery.message,
-        message: recovery.message,
-        recovery: recovery.actions
-      };
+      return handleHttpError(response);
     }
     
     return {
@@ -854,67 +871,22 @@ export async function syncFromCloud(): Promise<HistoryItem[]> {
   try {
     masterKey = await getMasterKey();
     if (!masterKey) {
-      const recovery = getErrorRecovery(new Error("请先设置主密码以保护您的数据"));
-      const error = new Error(recovery.message);
-      (error as any).recovery = recovery.actions;
-      throw error;
+      throwConfigError("请先设置主密码以保护您的数据");
     }
     
-    const sessionConfig = await getSessionConfig();
-    if (sessionConfig) {
-      config = sessionConfig;
-    } else {
-      const storedConfig = await getConfig();
-      if (storedConfig) {
-        try {
-          const encryptedPassword = storedConfig.password || "";
-          const encryptedKey = storedConfig.encryption?.key || "";
-          
-          if (encryptedPassword) {
-            storedConfig.password = await decryptData(encryptedPassword, masterKey);
-          }
-          
-          if (encryptedKey) {
-            storedConfig.encryption = {
-              ...storedConfig.encryption,
-              key: await decryptData(encryptedKey, masterKey),
-              enabled: storedConfig.encryption.enabled,
-              type: storedConfig.encryption.type
-            };
-          }
-          
-          config = storedConfig;
-          await setSessionConfig(config);
-        } catch {
-          const recovery = getErrorRecovery(new Error("无法解密配置，请检查主密码"));
-          const error = new Error(recovery.message);
-          (error as any).recovery = recovery.actions;
-          throw error;
-        }
-      }
+    try {
+      config = await loadAndDecryptConfig(masterKey);
+    } catch {
+      throwConfigError("无法解密配置，请检查主密码");
     }
     
-    if (!config || !validateConfig(config)) {
-      const recovery = getErrorRecovery(new Error("配置未设置"));
-      const error = new Error(recovery.message);
-      (error as any).recovery = recovery.actions;
-      throw error;
+    if (!config) {
+      throwConfigError("配置未设置");
     }
-
-    const urlValidation = validateUrl(config.url);
-    if (!urlValidation.isValid) {
-      const recovery = getErrorRecovery(new Error(urlValidation.error || "配置无效"));
-      const error = new Error(recovery.message);
-      (error as any).recovery = recovery.actions;
-      throw error;
-    }
-
-    const passwordValidation = validatePassword(config.password || '');
-    if (!passwordValidation.isValid) {
-      const recovery = getErrorRecovery(new Error(passwordValidation.error || "配置无效"));
-      const error = new Error(recovery.message);
-      (error as any).recovery = recovery.actions;
-      throw error;
+    
+    const validationResult = validateAllConfig(config);
+    if (validationResult) {
+      throwConfigError(validationResult.error || "配置无效");
     }
 
     const response = await fetchWithRetry(`${config.url.replace(/\/$/, "")}/${WEBDAV_FILENAME}`, {
@@ -927,49 +899,14 @@ export async function syncFromCloud(): Promise<HistoryItem[]> {
     if (response.status === 404) return [];
     
     if (!response.ok) {
-      let errorMessage = "同步失败";
-      
-      switch (response.status) {
-        case 401:
-          errorMessage = "认证失败，请检查用户名和密码";
-          break;
-        case 404:
-          errorMessage = "WebDAV 服务器路径不存在";
-          break;
-        case 403:
-          errorMessage = "没有权限访问 WebDAV 服务器";
-          break;
-        case 500:
-          errorMessage = "WebDAV 服务器内部错误";
-          break;
-        case 0:
-          errorMessage = "无法连接到 WebDAV 服务器，请检查网络连接";
-          break;
-      }
-      
-      const recovery = getErrorRecovery(new Error(errorMessage));
-      const error = new Error(recovery.message);
-      (error as any).recovery = recovery.actions;
-      throw error;
+      const httpError = handleHttpError(response);
+      throwConfigError(httpError.error || "同步失败");
     }
 
-    let data: any;
-    
-    if (config.encryption && config.encryption.enabled && config.encryption.key) {
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      const encryptedData = btoa(String.fromCharCode(...uint8Array));
-      data = await decrypt(encryptedData, config.encryption.key, config.encryption.type);
-    } else {
-      data = await response.json();
-    }
+    const data = await parseResponseData(response, config);
     
     if (!Array.isArray(data)) {
-      const recovery = getErrorRecovery(new Error("云端数据格式错误"));
-      const error = new Error(recovery.message);
-      (error as any).recovery = recovery.actions;
-      throw error;
+      throwConfigError("云端数据格式错误");
     }
     
     return data;
