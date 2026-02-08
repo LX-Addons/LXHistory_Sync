@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getMasterKey, setMasterPassword, clearMasterPassword } from "~common/webdav";
+import { getMasterKey, setMasterPassword as saveMasterPassword, clearMasterPassword } from "~common/webdav";
 
 export function useMasterPassword() {
   const [status, setStatus] = useState("");
@@ -32,7 +32,7 @@ export function useMasterPassword() {
     }
     
     try {
-      await setMasterPassword(masterPassword);
+      await saveMasterPassword(masterPassword);
       setMasterPasswordError("");
       setStatus("主密码设置成功！");
       setHasMasterPassword(true);
