@@ -1,6 +1,5 @@
 import { getLocalHistory } from "~common/history";
-import { syncToCloud } from "~common/webdav";
-import { setLogLevel, log } from "~common/webdav";
+import { syncToCloud, log } from "~common/webdav";
 
 let syncInterval: number | null = null;
 const DEFAULT_SYNC_INTERVAL = 60 * 60 * 1000; // 默认1小时
