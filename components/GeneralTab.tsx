@@ -90,7 +90,7 @@ export default function GeneralTab() {
             value={generalConfig.syncInterval / 60000}
             onChange={(e) => setGeneralConfig({ 
               ...generalConfig, 
-              syncInterval: parseInt(e.target.value) * 60000 
+              syncInterval: Number.parseInt(e.target.value) * 60000 
             })}
             disabled={!generalConfig.autoSyncEnabled}
           >
