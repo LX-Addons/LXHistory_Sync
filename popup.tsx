@@ -54,9 +54,12 @@ function DomainGroupItem({ domain, count, isExpanded, iconSource, onToggle }: Do
   };
 
   return (
-    <div 
+    <button 
       className={`domain-group ${isExpanded ? "expanded" : "collapsed"}`}
       onClick={onToggle}
+      type="button"
+      aria-label={`${isExpanded ? '折叠' : '展开'} ${domain} (${count} 条)`}
+      aria-expanded={isExpanded}
     >
       <div className="domain-header">
         <div className="domain-icon">
@@ -76,7 +79,7 @@ function DomainGroupItem({ domain, count, isExpanded, iconSource, onToggle }: Do
         <span className="domain-count">{count} 条</span>
         <span className="domain-toggle">{isExpanded ? "▼" : "▶"}</span>
       </div>
-    </div>
+    </button>
   );
 }
 
