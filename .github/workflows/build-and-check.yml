@@ -186,21 +186,21 @@ jobs:
           echo "🔒 Running security checks..."
           SECURITY_ISSUES=0
           
-          if grep -r "eval(" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo"; then
+          if grep -r "eval(" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo" | head -1; then
             echo "⚠️  Found eval() usage, potential security risk"
             SECURITY_ISSUES=1
           else
             echo "✓ No eval() usage found"
           fi
           
-          if grep -r "innerHTML" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo"; then
+          if grep -r "innerHTML" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo" | head -1; then
             echo "⚠️  Found innerHTML usage, potential XSS risk"
             SECURITY_ISSUES=1
           else
             echo "✓ No innerHTML usage found"
           fi
           
-          if grep -r "dangerouslySetInnerHTML" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo"; then
+          if grep -r "dangerouslySetInnerHTML" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo" | head -1; then
             echo "⚠️  Found dangerouslySetInnerHTML usage, potential XSS risk"
             SECURITY_ISSUES=1
           else
