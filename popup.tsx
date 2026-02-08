@@ -16,6 +16,70 @@ interface GroupedHistoryItem {
   isExpanded?: boolean;
 }
 
+interface DomainGroupItemProps {
+  domain: string;
+  count: number;
+  isExpanded: boolean;
+  iconSource: IconSourceType;
+  onToggle: () => void;
+}
+
+function DateGroupItem({ date }: { date: string }) {
+  return <div className="date-group">{date}</div>;
+}
+
+function DomainGroupItem({ domain, count, isExpanded, iconSource, onToggle }: DomainGroupItemProps) {
+  const getDomainFaviconUrl = (domain: string): string => {
+    if (!domain) return "";
+    
+    switch (iconSource) {
+      case "byteance":
+        return `https://f1.allesedv.com/${domain}/favicon.ico`;
+      case "google":
+        return `https://www.google.com/s2/favicons?domain=${domain}&sz=16`;
+      case "duckduckgo":
+        return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+      default:
+        return "";
+    }
+  };
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const target = e.target as HTMLImageElement;
+    target.style.display = 'none';
+    const textIcon = document.createElement('span');
+    const firstChar = domain.charAt(0).toUpperCase();
+    textIcon.textContent = firstChar.match(/[a-zA-Z0-9]/) ? firstChar : "🌐";
+    target.parentElement?.appendChild(textIcon);
+  };
+
+  return (
+    <div 
+      className={`domain-group ${isExpanded ? "expanded" : "collapsed"}`}
+      onClick={onToggle}
+    >
+      <div className="domain-header">
+        <div className="domain-icon">
+          {iconSource === "letter" ? (
+            <span>
+              {domain.charAt(0).toUpperCase()}
+            </span>
+          ) : iconSource !== "none" ? (
+            <img 
+              src={getDomainFaviconUrl(domain)} 
+              alt={domain} 
+              onError={handleImageError}
+            />
+          ) : null}
+        </div>
+        <span className="domain-name">{domain}</span>
+        <span className="domain-count">{count} 条</span>
+        <span className="domain-toggle">{isExpanded ? "▼" : "▶"}</span>
+      </div>
+    </div>
+  );
+}
+
 const extractDomain = (url: string) => {
   try {
     const urlObj = new URL(url);
@@ -151,13 +215,51 @@ const Popup: React.FC = () => {
     }
   };
 
-  const groupHistoryByDate = (items: HistoryItemType[]) => {
+  const groupItemsByDomain = (items: HistoryItemType[]): GroupedHistoryItem[] => {
     const grouped: GroupedHistoryItem[] = [];
-    let currentDate = "";
+    const itemsByDomain: Record<string, HistoryItemType[]> = {};
     
+    items.forEach(item => {
+      const domain = extractDomain(item.url);
+      if (!itemsByDomain[domain]) {
+        itemsByDomain[domain] = [];
+      }
+      itemsByDomain[domain].push(item);
+    });
+    
+    Object.entries(itemsByDomain).forEach(([domain, domainItems], domainIndex) => {
+      grouped.push({
+        id: `domain-${domainIndex}`,
+        type: "domain",
+        data: { domain, count: domainItems.length },
+        isExpanded: false
+      });
+      
+      domainItems.forEach(item => {
+        grouped.push({
+          id: item.id,
+          type: "item",
+          data: item
+        });
+      });
+    });
+    
+    return grouped;
+  };
+
+  const createDateGroup = (items: HistoryItemType[], dateIndex: number): GroupedHistoryItem => {
+    return {
+      id: `date-${dateIndex}`,
+      type: "date",
+      data: formatDate(items[0].lastVisitTime)
+    };
+  };
+
+  const groupHistoryByDate = (items: HistoryItemType[]): GroupedHistoryItem[] => {
+    const grouped: GroupedHistoryItem[] = [];
     const sortedItems = [...items].sort((a, b) => b.lastVisitTime - a.lastVisitTime);
-    
     const itemsByDate: Record<string, HistoryItemType[]> = {};
+    
     sortedItems.forEach(item => {
       const itemDate = new Date(item.lastVisitTime).toDateString();
       if (!itemsByDate[itemDate]) {
@@ -167,39 +269,10 @@ const Popup: React.FC = () => {
     });
     
     Object.entries(itemsByDate).forEach(([date, dateItems], dateIndex) => {
-      const firstItem = dateItems[0];
-      grouped.push({
-        id: `date-${dateIndex}`,
-        type: "date",
-        data: formatDate(firstItem.lastVisitTime)
-      });
+      grouped.push(createDateGroup(dateItems, dateIndex));
       
       if (generalConfig.collapseDomainHistory) {
-        const itemsByDomain: Record<string, HistoryItemType[]> = {};
-        dateItems.forEach(item => {
-          const domain = extractDomain(item.url);
-          if (!itemsByDomain[domain]) {
-            itemsByDomain[domain] = [];
-          }
-          itemsByDomain[domain].push(item);
-        });
-        
-        Object.entries(itemsByDomain).forEach(([domain, domainItems], domainIndex) => {
-          grouped.push({
-            id: `domain-${dateIndex}-${domainIndex}`,
-            type: "domain",
-            data: { domain, count: domainItems.length },
-            isExpanded: false
-          });
-          
-          domainItems.forEach(item => {
-            grouped.push({
-              id: item.id,
-              type: "item",
-              data: item
-            });
-          });
-        });
+        grouped.push(...groupItemsByDomain(dateItems));
       } else {
         dateItems.forEach(item => {
           grouped.push({
@@ -212,6 +285,28 @@ const Popup: React.FC = () => {
     });
     
     return grouped;
+  };
+
+  const shouldShowHistoryItem = (index: number, item: GroupedHistoryItem): boolean => {
+    if (!generalConfig.collapseDomainHistory) return true;
+    if (item.type !== "item") return true;
+    
+    let parentDomainId: string | null = null;
+    for (let i = index - 1; i >= 0; i--) {
+      const prevItem = historyItems[i];
+      if (prevItem.type === "domain") {
+        parentDomainId = prevItem.id;
+        break;
+      } else if (prevItem.type === "date") {
+        break;
+      }
+    }
+    
+    if (parentDomainId) {
+      return expandedDomains.has(parentDomainId);
+    }
+    
+    return true;
   };
 
   const loadHistory = async () => {
@@ -313,76 +408,22 @@ const Popup: React.FC = () => {
               data={historyItems}
               itemContent={(index, item) => {
                 if (item.type === "date") {
-                  return <div className="date-group">{typeof item.data === 'string' ? item.data : JSON.stringify(item.data)}</div>;
+                  return <DateGroupItem date={typeof item.data === 'string' ? item.data : JSON.stringify(item.data)} />;
                 } else if (item.type === "domain") {
                   const domainData = item.data as { domain: string; count: number };
-                  const isExpanded = expandedDomains.has(item.id);
-                  
-                  const getDomainFaviconUrl = (domain: string) => {
-                    if (!domain) return "";
-
-                    switch (generalConfig.iconSource) {
-                      case "byteance":
-                        return `https://f1.allesedv.com/${domain}/favicon.ico`;
-                      case "google":
-                        return `https://www.google.com/s2/favicons?domain=${domain}&sz=16`;
-                      case "duckduckgo":
-                        return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
-                      default:
-                        return "";
-                    }
-                  };
-
                   return (
-                    <div 
-                      className={`domain-group ${isExpanded ? "expanded" : "collapsed"}`}
-                      onClick={() => handleDomainClick(item.id)}
-                    >
-                      <div className="domain-header">
-                        <div className="domain-icon">
-                          {generalConfig.iconSource === "letter" ? (
-                            <span>
-                              {domainData.domain.charAt(0).toUpperCase()}
-                            </span>
-                          ) : generalConfig.iconSource !== "none" ? (
-                            <img 
-                              src={getDomainFaviconUrl(domainData.domain)} 
-                              alt={domainData.domain} 
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                const textIcon = document.createElement('span');
-                                const firstChar = domainData.domain.charAt(0).toUpperCase();
-                                textIcon.textContent = firstChar.match(/[a-zA-Z0-9]/) ? firstChar : "🌐";
-                                target.parentElement?.appendChild(textIcon);
-                              }}
-                            />
-                          ) : null}
-                        </div>
-                        <span className="domain-name">{domainData.domain}</span>
-                        <span className="domain-count">{domainData.count} 条</span>
-                        <span className="domain-toggle">{isExpanded ? "▼" : "▶"}</span>
-                      </div>
-                    </div>
+                    <DomainGroupItem
+                      domain={domainData.domain}
+                      count={domainData.count}
+                      isExpanded={expandedDomains.has(item.id)}
+                      iconSource={generalConfig.iconSource}
+                      onToggle={() => handleDomainClick(item.id)}
+                    />
                   );
                 } else {
-                  let shouldShow = true;
-                  if (generalConfig.collapseDomainHistory) {
-                    let parentDomainId = null;
-                    for (let i = index - 1; i >= 0; i--) {
-                      const prevItem = historyItems[i];
-                      if (prevItem.type === "domain") {
-                        parentDomainId = prevItem.id;
-                        break;
-                      } else if (prevItem.type === "date") {
-                        break;
-                      }
-                    }
-                    if (parentDomainId) {
-                      shouldShow = expandedDomains.has(parentDomainId);
-                    }
-                  }
-                  return shouldShow ? <HistoryItemComponent item={item.data as HistoryItemType} showUrls={generalConfig.showUrls} iconSource={generalConfig.iconSource} /> : null;
+                  return shouldShowHistoryItem(index, item) ? 
+                    <HistoryItemComponent item={item.data as HistoryItemType} showUrls={generalConfig.showUrls} iconSource={generalConfig.iconSource} /> : 
+                    null;
                 }
               }}
             />
