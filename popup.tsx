@@ -44,6 +44,22 @@ function DomainGroupItem({ domain, count, isExpanded, iconSource, onToggle }: Do
     }
   };
 
+  const getDomainIcon = (domain: string, iconSource: IconSourceType): React.ReactNode => {
+    if (iconSource === "letter") {
+      return <span>{domain.charAt(0).toUpperCase()}</span>;
+    }
+    if (iconSource !== "none") {
+      return (
+        <img 
+          src={getDomainFaviconUrl(domain)} 
+          alt={domain} 
+          onError={handleImageError}
+        />
+      );
+    }
+    return null;
+  };
+
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.target as HTMLImageElement;
     target.style.display = 'none';
@@ -63,17 +79,7 @@ function DomainGroupItem({ domain, count, isExpanded, iconSource, onToggle }: Do
     >
       <div className="domain-header">
         <div className="domain-icon">
-          {iconSource === "letter" ? (
-            <span>
-              {domain.charAt(0).toUpperCase()}
-            </span>
-          ) : iconSource !== "none" ? (
-            <img 
-              src={getDomainFaviconUrl(domain)} 
-              alt={domain} 
-              onError={handleImageError}
-            />
-          ) : null}
+          {getDomainIcon(domain, iconSource)}
         </div>
         <span className="domain-name">{domain}</span>
         <span className="domain-count">{count} 条</span>
@@ -196,7 +202,7 @@ const Popup: React.FC = () => {
   const checkWebDAVConfig = async () => {
     try {
       const config = await storage.get<WebDAVConfig>("webdav_config");
-      setHasWebDAVConfig(!!config && !!config.url && !!config.username);
+      setHasWebDAVConfig(!!config?.url && !!config?.username);
     } catch (error) {
       console.error("Failed to check WebDAV config:", error);
       setHasWebDAVConfig(false);
@@ -424,9 +430,16 @@ const Popup: React.FC = () => {
                     />
                   );
                 } else {
-                  return shouldShowHistoryItem(index, item) ? 
-                    <HistoryItemComponent item={item.data as HistoryItemType} showUrls={generalConfig.showUrls} iconSource={generalConfig.iconSource} /> : 
-                    null;
+                  if (!shouldShowHistoryItem(index, item)) {
+                    return null;
+                  }
+                  return (
+                    <HistoryItemComponent 
+                      item={item.data as HistoryItemType} 
+                      showUrls={generalConfig.showUrls} 
+                      iconSource={generalConfig.iconSource} 
+                    />
+                  );
                 }
               }}
             />
