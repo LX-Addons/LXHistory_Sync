@@ -1380,11 +1380,8 @@ input::placeholder {
 
 .form-actions {
   display: flex;
-  gap: var(--spacing-md);
+ gap: var(--spacing-md);
   margin-top: var(--spacing-lg);
 }
 
-.btn-secondary {
-  background-color: var(--secondary-color);
-  color: white;
-}
+.form-group {
