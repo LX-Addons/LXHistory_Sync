@@ -56,7 +56,20 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, status, onConfigChange,
         return "未知";
     }
   };
-  
+
+  const getStrengthWidth = (strength: KeyStrength): string => {
+    switch (strength) {
+      case "weak":
+        return "33%";
+      case "medium":
+        return "66%";
+      case "strong":
+        return "100%";
+      default:
+        return "0%";
+    }
+  };
+
   const handleUrlChange = (value: string) => {
     const validation = validateUrl(value);
     setValidationErrors(prev => ({
@@ -232,7 +245,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, status, onConfigChange,
                   overflow: "hidden"
                 }}>
                   <div style={{ 
-                    width: keyStrength === "weak" ? "33%" : keyStrength === "medium" ? "66%" : "100%",
+                    width: getStrengthWidth(keyStrength),
                     height: "100%",
                     backgroundColor: getStrengthColor(keyStrength),
                     transition: "width 0.3s ease, background-color 0.3s ease"
