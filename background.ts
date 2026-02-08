@@ -2,7 +2,7 @@ import { getLocalHistory } from "~common/history";
 import { syncToCloud, log } from "~common/webdav";
 
 let syncInterval: number | null = null;
-const DEFAULT_SYNC_INTERVAL = 60 * 60 * 1000; // 默认1小时
+const DEFAULT_SYNC_INTERVAL = 60 * 60 * 1000;
 let isSyncing = false;
 
 async function performScheduledSync() {
