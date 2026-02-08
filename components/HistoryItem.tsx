@@ -56,7 +56,12 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ item, showUrls = false, iconS
   };
 
   return (
-    <div className="history-item" onClick={handleClick}>
+    <button 
+      className="history-item" 
+      onClick={handleClick}
+      type="button"
+      aria-label={`打开 ${item.title || '无标题'}`}
+    >
       {item.url && iconSource !== "none" && (
         <div className="history-item-icon-container">
           {iconSource === "letter" ? (
@@ -87,7 +92,7 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ item, showUrls = false, iconS
         )}
       </div>
       <div className="history-item-time">{formatTime(item.lastVisitTime)}</div>
-    </div>
+    </button>
   );
 };
 
