@@ -82,10 +82,10 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SYNC_DATA") {
+  if (event.data?.type === "SYNC_DATA") {
     console.log("LXHistory_Sync: Sync requested from popup");
     performScheduledSync();
-  } else if (event.data && event.data.type === "UPDATE_SYNC_SETTINGS") {
+  } else if (event.data?.type === "UPDATE_SYNC_SETTINGS") {
     console.log("LXHistory_Sync: Sync settings updated");
     startSyncTimer();
   }
