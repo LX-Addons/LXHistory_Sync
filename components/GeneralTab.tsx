@@ -125,7 +125,7 @@ export default function GeneralTab() {
         </div>
         
         <div className="form-group">
-          <label>样式预览:</label>
+          <span className="label-text">样式预览:</span>
           <div className="checkbox-preview">
             <div className="preview-item">
               <input
