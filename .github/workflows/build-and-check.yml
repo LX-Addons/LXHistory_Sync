@@ -321,7 +321,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-results
-          path: test-results/
+          path: /tmp/test-results/
           retention-days: 7
 
   e2e-test:

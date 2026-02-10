@@ -244,6 +244,25 @@ e2e/
 
 ---
 
+## 工作流生成的报告位置
+
+所有 CI 工作流生成的报告都输出到系统临时目录，不会污染项目工作区：
+
+| 报告类型 | 本地路径 | CI 路径 (GitHub Actions) | 上传方式 |
+|---------|---------|------------------------|---------|
+| **单元测试报告** | 控制台输出 | `/tmp/test-results/unit-test-results.xml` | Artifact |
+| **E2E 测试报告** | `./playwright-report/` | `/tmp/playwright-report/` | Artifact |
+| **构建产物** | `./build/` | `./build/` (临时) | Artifact |
+| **代码覆盖率** | `./coverage/` | `./coverage/` (临时) | 不上传 |
+
+**说明**:
+- CI 环境使用 `/tmp/` 目录存放所有生成的报告
+- 本地开发使用项目目录存放报告（已被 `.gitignore` 忽略）
+- 所有报告通过 `actions/upload-artifact` 上传到 GitHub Actions 的 artifact 存储
+- Artifact 保留 7 天后自动删除
+
+---
+
 ## 文件关联图
 
 ```
@@ -253,16 +272,16 @@ e2e/
 │   ├── vitest.config.ts ──────┐
 │   ├── vitest.setup.ts ───────┤───> __tests__/unit/*.test.ts
 │   └── tsconfig.json ─────────┘
-│
-├── E2E 测试
-│   ├── playwright.config.ts ──┐
+│                              │
+├── E2E 测试                   │
+│   ├── playwright.config.ts ──┤
 │   └── tsconfig.json ─────────┤───> e2e/*.spec.ts
 │                              │
 ├── 代码质量检查               │
 │   ├── eslint.config.mjs ─────┤
 │   ├── .prettierrc ───────────┤
 │   ├── .prettierignore ───────┤
-│   └── sonar-project.properties
+│   └── sonar-project.properties│
 │                              │
 └── CI/CD 流程                 │
     └── .github/workflows/     │
