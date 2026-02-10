@@ -2,9 +2,6 @@ import type { BrowserContext } from '@playwright/test'
 import path from 'path'
 
 export async function getExtensionId(context: BrowserContext): Promise<string> {
-  // 尝试多种方式获取扩展 ID
-
-  // 方式1: 通过 service worker
   let [background] = context.serviceWorkers()
   if (background) {
     const url = background.url()
@@ -16,7 +13,6 @@ export async function getExtensionId(context: BrowserContext): Promise<string> {
     }
   }
 
-  // 方式2: 等待 service worker 启动
   console.log('Waiting for service worker...')
   try {
     background = await context.waitForEvent('serviceworker', { timeout: 10000 })
@@ -31,7 +27,6 @@ export async function getExtensionId(context: BrowserContext): Promise<string> {
     console.log('Service worker not found, trying other methods...')
   }
 
-  // 方式3: 通过 background page (Manifest V2)
   const pages = context.backgroundPages()
   if (pages.length > 0) {
     const url = pages[0].url()
@@ -43,7 +38,6 @@ export async function getExtensionId(context: BrowserContext): Promise<string> {
     }
   }
 
-  // 方式4: 尝试从页面获取
   console.log('Trying to get extension ID from page...')
   const page = context.pages()[0]
   if (page) {

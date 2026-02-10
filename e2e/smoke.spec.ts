@@ -2,7 +2,6 @@ import { test, expect } from '@playwright/test'
 import path from 'path'
 import fs from 'fs'
 
-// 查找扩展构建路径的辅助函数
 function findExtensionPath(): string {
   const possiblePaths = [
     path.join(__dirname, '../build/chrome-mv3-prod'),
@@ -18,7 +17,6 @@ function findExtensionPath(): string {
     }
   }
 
-  // 调试信息
   const buildPath = path.join(__dirname, '../build')
   console.log('Build directory exists:', fs.existsSync(buildPath))
   if (fs.existsSync(buildPath)) {
@@ -28,7 +26,6 @@ function findExtensionPath(): string {
   return ''
 }
 
-// 验证 HTML 文件内容的辅助函数
 function verifyHtmlContent(filePath: string): void {
   const content = fs.readFileSync(filePath, 'utf-8')
   expect(content).toContain('<html')
@@ -41,12 +38,10 @@ test.describe('冒烟测试', () => {
     const extensionPath = findExtensionPath()
     expect(extensionPath).not.toBe('')
 
-    // 验证关键文件存在
     expect(fs.existsSync(path.join(extensionPath, 'manifest.json'))).toBe(true)
     expect(fs.existsSync(path.join(extensionPath, 'popup.html'))).toBe(true)
     expect(fs.existsSync(path.join(extensionPath, 'options.html'))).toBe(true)
 
-    // 验证 manifest 内容
     const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf-8'))
     expect(manifest.manifest_version).toBe(3)
     expect(manifest.name).toBe('LXHistory_Sync')
