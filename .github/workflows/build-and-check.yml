@@ -218,13 +218,19 @@ jobs:
             echo "⚠️  Security issues found, please review"
           fi
 
+      - name: List build directory
+        run: |
+          echo "📁 Build directory contents:"
+          ls -la build/
+          echo "📁 Chrome MV3 Prod contents:"
+          ls -la build/chrome-mv3-prod/ || echo "Directory not found"
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: extension-build
           path: |
-            build/
-            *.zip
+            build/chrome-mv3-prod/
           retention-days: 7
 
       - name: Create Release
@@ -338,7 +344,16 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: extension-build
-          path: build/
+          path: build/chrome-mv3-prod/
+
+      - name: Verify downloaded build
+        run: |
+          echo "📁 Downloaded build contents:"
+          ls -la build/
+          echo "📁 Chrome MV3 Prod contents:"
+          ls -la build/chrome-mv3-prod/ || echo "Directory not found"
+          echo "📁 manifest.json:"
+          cat build/chrome-mv3-prod/manifest.json || echo "manifest.json not found"
 
       - name: Run E2E tests
         run: npm run test:e2e
