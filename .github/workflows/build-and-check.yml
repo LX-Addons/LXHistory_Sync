@@ -2,9 +2,9 @@ name: Build and Check Browser Extension
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -25,7 +25,7 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Dependency audit
         run: npm audit --production || true
@@ -120,14 +120,14 @@ jobs:
           PROJECT_NAME=${{ steps.get_version.outputs.project_name }}
           BUILD_DIR=${{ steps.get_version.outputs.build_dir }}
           ZIP_FILE=${{ steps.get_version.outputs.zip_file }}
-          
+
           PROD_BUILD=$(find build -type d -name "chrome-mv3-prod" -o -name "*-mv3-prod" | head -1)
-          
+
           if [ -n "$PROD_BUILD" ]; then
             mv "$PROD_BUILD" "build/$BUILD_DIR"
             echo "✓ Renamed build directory to build/$BUILD_DIR"
           fi
-          
+
           ZIP_PATH=$(find build -name "*.zip" | head -1)
           if [ -f "$ZIP_PATH" ]; then
             mv "$ZIP_PATH" "build/$ZIP_FILE"
@@ -185,28 +185,28 @@ jobs:
         run: |
           echo "🔒 Running security checks..."
           SECURITY_ISSUES=0
-          
+
           if grep -r "eval(" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo" | head -1; then
             echo "⚠️  Found eval() usage, potential security risk"
             SECURITY_ISSUES=1
           else
             echo "✓ No eval() usage found"
           fi
-          
+
           if grep -r "innerHTML" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo" | head -1; then
             echo "⚠️  Found innerHTML usage, potential XSS risk"
             SECURITY_ISSUES=1
           else
             echo "✓ No innerHTML usage found"
           fi
-          
+
           if grep -r "dangerouslySetInnerHTML" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo" | head -1; then
             echo "⚠️  Found dangerouslySetInnerHTML usage, potential XSS risk"
             SECURITY_ISSUES=1
           else
             echo "✓ No dangerouslySetInnerHTML usage found"
           fi
-          
+
           if [ $SECURITY_ISSUES -eq 0 ]; then
             echo "✅ All security checks passed"
           else
@@ -228,7 +228,7 @@ jobs:
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
           TAG_NAME="v${VERSION}"
-          
+
           if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
             echo "ℹ️ Tag $TAG_NAME already exists, skipping release creation"
             echo "ℹ️ To create a new release, update the version in package.json"
@@ -260,7 +260,7 @@ jobs:
           echo "✅ Build completed successfully"
           echo "✅ TypeScript check passed"
           echo "✅ Dependency audit completed"
-          
+
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "✅ Extension packaged"
             ZIP_FILE=$(find build -name "*.zip" | head -1)
@@ -275,3 +275,63 @@ jobs:
             echo "✅ No issues found"
             echo "ℹ️ Package and release steps skipped (manual trigger only)"
           fi
+
+  unit-test:
+    runs-on: ubuntu-latest
+    needs: build-and-check
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: test-results/
+          retention-days: 7
+
+  e2e-test:
+    runs-on: ubuntu-latest
+    needs: build-and-check
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Build extension for E2E
+        run: npm run build
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

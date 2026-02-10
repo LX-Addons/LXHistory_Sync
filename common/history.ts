@@ -44,10 +44,10 @@ export async function getLocalHistory(): Promise<HistoryItem[]> {
   })
 }
 
-export async function mergeHistory(
+export function mergeHistory(
   local: HistoryItem[],
   remote: HistoryItem[]
-): Promise<HistoryItem[]> {
+): HistoryItem[] {
   const map = new Map<string, HistoryItem>()
   local.forEach(item => map.set(item.url, item))
   remote.forEach(item => {
