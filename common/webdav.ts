@@ -694,6 +694,24 @@ function throwConfigError(errorMessage: string): never {
   throw error
 }
 
+async function loadConfigForSync(masterKey: CryptoKey): Promise<WebDAVConfig | null> {
+  try {
+    const config = await loadAndDecryptConfig(masterKey)
+    if (!config) {
+      return null
+    }
+
+    const validationResult = validateAllConfig(config)
+    if (validationResult) {
+      return null
+    }
+
+    return config
+  } catch {
+    return null
+  }
+}
+
 export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyncResult> {
   try {
     const masterKey = await getMasterKey()
@@ -705,20 +723,9 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
       }
     }
 
-    let config: WebDAVConfig | null = null
-    try {
-      config = await loadAndDecryptConfig(masterKey)
-    } catch {
-      return createValidationResult('无法解密配置，请检查主密码')
-    }
-
+    const config = await loadConfigForSync(masterKey)
     if (!config) {
-      return createValidationResult('配置未设置')
-    }
-
-    const validationResult = validateAllConfig(config)
-    if (validationResult) {
-      return validationResult
+      return createValidationResult('配置未设置或无效')
     }
 
     let remoteHistory: HistoryItem[] = []
@@ -763,27 +770,15 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
 }
 
 export async function syncFromCloud(): Promise<HistoryItem[]> {
-  let config: WebDAVConfig | null = null
-
   try {
     const masterKey = await getMasterKey()
     if (!masterKey) {
       throwConfigError('请先设置主密码以保护您的数据')
     }
 
-    try {
-      config = await loadAndDecryptConfig(masterKey)
-    } catch {
-      throwConfigError('无法解密配置，请检查主密码')
-    }
-
+    const config = await loadConfigForSync(masterKey)
     if (!config) {
-      throwConfigError('配置未设置')
-    }
-
-    const validationResult = validateAllConfig(config)
-    if (validationResult) {
-      throwConfigError(validationResult.error || '配置无效')
+      throwConfigError('配置未设置或无效')
     }
 
     const response = await fetchWithRetry(`${config.url.replace(/\/$/, '')}/${WEBDAV_FILENAME}`, {
