@@ -1,6 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
 import path from 'path'
 
+const extensionPath = process.env.CI
+  ? path.join(__dirname, 'build/chrome-mv3-prod')
+  : path.join(__dirname, 'build/chrome-mv3-dev')
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -20,8 +24,8 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         launchOptions: {
           args: [
-            `--disable-extensions-except=${path.join(__dirname, 'build/chrome-mv3-dev')}`,
-            `--load-extension=${path.join(__dirname, 'build/chrome-mv3-dev')}`,
+            `--disable-extensions-except=${extensionPath}`,
+            `--load-extension=${extensionPath}`,
           ],
         },
       },

@@ -219,7 +219,6 @@ jobs:
           fi
 
       - name: Upload build artifacts
-        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: extension-build
@@ -335,8 +334,11 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium
 
-      - name: Build extension for E2E
-        run: npm run build
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-build
+          path: build/
 
       - name: Run E2E tests
         run: npm run test:e2e
