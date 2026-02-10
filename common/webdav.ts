@@ -247,68 +247,49 @@ type EncryptionAlgorithm =
   | AesCbcParams
   | AesGcmParams
 
+function getAlgorithmParams(algorithm: string): { name: string; length: number } {
+  switch (algorithm) {
+    case 'aes-256-gcm':
+      return { name: 'AES-GCM', length: 256 }
+    case 'aes-256-ctr':
+      return { name: 'AES-CTR', length: 256 }
+    case 'chacha20-poly1305':
+      return { name: 'ChaCha20-Poly1305', length: 256 }
+    case 'aes-256-cbc':
+    default:
+      return { name: 'AES-CBC', length: 256 }
+  }
+}
+
+async function deriveKey(
+  keyMaterial: CryptoKey,
+  salt: string,
+  algorithm: string,
+  usage: 'encrypt' | 'decrypt'
+): Promise<CryptoKey> {
+  const encoder = new TextEncoder()
+  const params = getAlgorithmParams(algorithm)
+
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: encoder.encode(salt),
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    params,
+    false,
+    [usage]
+  )
+}
+
 async function deriveEncryptionKey(
   keyMaterial: CryptoKey,
   salt: string,
   algorithm: string
 ): Promise<CryptoKey> {
-  const encoder = new TextEncoder()
-
-  switch (algorithm) {
-    case 'aes-256-gcm':
-      return crypto.subtle.deriveKey(
-        {
-          name: 'PBKDF2',
-          salt: encoder.encode(salt),
-          iterations: PBKDF2_ITERATIONS,
-          hash: 'SHA-256',
-        },
-        keyMaterial,
-        { name: 'AES-GCM', length: 256 },
-        false,
-        ['encrypt']
-      )
-    case 'aes-256-ctr':
-      return crypto.subtle.deriveKey(
-        {
-          name: 'PBKDF2',
-          salt: encoder.encode(salt),
-          iterations: PBKDF2_ITERATIONS,
-          hash: 'SHA-256',
-        },
-        keyMaterial,
-        { name: 'AES-CTR', length: 256 },
-        false,
-        ['encrypt']
-      )
-    case 'chacha20-poly1305':
-      return crypto.subtle.deriveKey(
-        {
-          name: 'PBKDF2',
-          salt: encoder.encode(salt),
-          iterations: PBKDF2_ITERATIONS,
-          hash: 'SHA-256',
-        },
-        keyMaterial,
-        { name: 'ChaCha20-Poly1305', length: 256 },
-        false,
-        ['encrypt']
-      )
-    case 'aes-256-cbc':
-    default:
-      return crypto.subtle.deriveKey(
-        {
-          name: 'PBKDF2',
-          salt: encoder.encode(salt),
-          iterations: PBKDF2_ITERATIONS,
-          hash: 'SHA-256',
-        },
-        keyMaterial,
-        { name: 'AES-CBC', length: 256 },
-        false,
-        ['encrypt']
-      )
-  }
+  return deriveKey(keyMaterial, salt, algorithm, 'encrypt')
 }
 
 function getIVLength(algorithm: string): number {
@@ -323,7 +304,7 @@ function getIVLength(algorithm: string): number {
   }
 }
 
-function createEncryptionAlgorithm(type: string, iv: Uint8Array): EncryptionAlgorithm {
+function createAlgorithm(type: string, iv: Uint8Array): EncryptionAlgorithm {
   const encoder = new TextEncoder()
 
   switch (type) {
@@ -353,6 +334,10 @@ function createEncryptionAlgorithm(type: string, iv: Uint8Array): EncryptionAlgo
         iv,
       }
   }
+}
+
+function createEncryptionAlgorithm(type: string, iv: Uint8Array): EncryptionAlgorithm {
+  return createAlgorithm(type, iv)
 }
 
 async function encrypt(
@@ -419,95 +404,11 @@ async function deriveDecryptionKey(
   salt: string,
   algorithm: string
 ): Promise<CryptoKey> {
-  const encoder = new TextEncoder()
-
-  switch (algorithm) {
-    case 'aes-256-gcm':
-      return crypto.subtle.deriveKey(
-        {
-          name: 'PBKDF2',
-          salt: encoder.encode(salt),
-          iterations: PBKDF2_ITERATIONS,
-          hash: 'SHA-256',
-        },
-        keyMaterial,
-        { name: 'AES-GCM', length: 256 },
-        false,
-        ['decrypt']
-      )
-    case 'aes-256-ctr':
-      return crypto.subtle.deriveKey(
-        {
-          name: 'PBKDF2',
-          salt: encoder.encode(salt),
-          iterations: PBKDF2_ITERATIONS,
-          hash: 'SHA-256',
-        },
-        keyMaterial,
-        { name: 'AES-CTR', length: 256 },
-        false,
-        ['decrypt']
-      )
-    case 'chacha20-poly1305':
-      return crypto.subtle.deriveKey(
-        {
-          name: 'PBKDF2',
-          salt: encoder.encode(salt),
-          iterations: PBKDF2_ITERATIONS,
-          hash: 'SHA-256',
-        },
-        keyMaterial,
-        { name: 'ChaCha20-Poly1305', length: 256 },
-        false,
-        ['decrypt']
-      )
-    case 'aes-256-cbc':
-    default:
-      return crypto.subtle.deriveKey(
-        {
-          name: 'PBKDF2',
-          salt: encoder.encode(salt),
-          iterations: PBKDF2_ITERATIONS,
-          hash: 'SHA-256',
-        },
-        keyMaterial,
-        { name: 'AES-CBC', length: 256 },
-        false,
-        ['decrypt']
-      )
-  }
+  return deriveKey(keyMaterial, salt, algorithm, 'decrypt')
 }
 
 function createDecryptionAlgorithm(type: string, iv: Uint8Array): EncryptionAlgorithm {
-  const encoder = new TextEncoder()
-
-  switch (type) {
-    case 'aes-256-gcm':
-      return {
-        name: 'AES-GCM',
-        iv,
-        additionalData: encoder.encode(APP_NAME),
-      }
-    case 'aes-256-ctr':
-      return {
-        name: 'AES-CTR',
-        counter: iv,
-        length: 128,
-      }
-    case 'chacha20-poly1305':
-      return {
-        name: 'ChaCha20-Poly1305',
-        counter: iv,
-        length: 96,
-        additionalData: encoder.encode(APP_NAME),
-      }
-    case 'aes-256-cbc':
-    default:
-      return {
-        name: 'AES-CBC',
-        iv,
-      }
-  }
+  return createAlgorithm(type, iv)
 }
 
 async function decrypt(encryptedData: string, key: string, type: string): Promise<HistoryItem[]> {
