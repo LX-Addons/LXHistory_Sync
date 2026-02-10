@@ -1,4 +1,3 @@
-import js from '@eslint/js'
 import tsParser from '@typescript-eslint/parser'
 import tsPlugin from '@typescript-eslint/eslint-plugin'
 import prettierConfig from 'eslint-config-prettier'
@@ -19,7 +18,6 @@ export default [
       'tsconfig.tsbuildinfo',
     ],
   },
-  js.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
@@ -54,7 +52,6 @@ export default [
         crypto: 'readonly',
         btoa: 'readonly',
         atob: 'readonly',
-        React: 'readonly',
       },
     },
     plugins: {
@@ -81,7 +78,6 @@ export default [
       curly: ['error', 'multi-line'],
       'no-throw-literal': 'error',
       'no-empty': ['error', { allowEmptyCatch: true }],
-      'no-undef': 'error',
     },
   },
   {
