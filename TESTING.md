@@ -25,6 +25,7 @@
 **作用**: 配置 Vitest 单元测试框架
 
 **关键配置**:
+
 - 测试环境: `happy-dom` (模拟浏览器环境)
 - 测试文件匹配: `**/*.test.ts`
 - 覆盖率报告目录: `coverage/`
@@ -43,6 +44,7 @@
 **作用**: 单元测试的全局设置和模拟
 
 **内容**:
+
 - 模拟 Chrome API (`chrome.storage`, `chrome.history`, `chrome.runtime`)
 - 模拟 `crypto` 模块
 - 全局测试钩子
@@ -60,6 +62,7 @@
 **作用**: 配置 Playwright E2E 测试框架
 
 **关键配置**:
+
 - 测试目录: `./e2e`
 - 报告输出:
   - CI 环境: `/tmp/playwright-report/` (系统临时目录)
@@ -82,6 +85,7 @@
 **作用**: JavaScript/TypeScript 代码质量和风格检查
 
 **检查规则**:
+
 - TypeScript 类型检查
 - React Hooks 规则
 - 未使用变量检测
@@ -101,6 +105,7 @@
 **作用**: 代码格式化配置
 
 **配置项**:
+
 - 单引号
 - 无分号
 - 2 空格缩进
@@ -120,6 +125,7 @@
 **作用**: 指定哪些文件不应用 Prettier 格式化
 
 **忽略项**:
+
 - `node_modules/`
 - `build/`
 - `.plasmo/`
@@ -140,6 +146,7 @@
 **作用**: TypeScript 编译器配置
 
 **关键配置**:
+
 - 严格类型检查
 - JSX 支持
 - 路径别名 (`~`, `~common`, `~components` 等)
@@ -160,11 +167,13 @@
 **作用**: 自动化构建、测试和发布流程
 
 **包含任务**:
+
 1. **build-and-check**: 代码检查、构建、安全扫描
 2. **unit-test**: 运行 Vitest 单元测试
 3. **e2e-test**: 运行 Playwright E2E 测试
 
 **触发条件**:
+
 - Push 到 main 分支
 - Pull Request 到 main 分支
 - 手动触发 (workflow_dispatch)
@@ -184,6 +193,7 @@
 **作用**: SonarCloud 代码质量分析配置
 
 **配置项**:
+
 - 项目 Key 和组织
 - 排除目录 (node_modules, build, playwright-report 等)
 - 测试文件排除
@@ -202,6 +212,7 @@
 **完整路径**: `d:\trea-cn\LXHistory_Sync\__tests__\`
 
 **子目录结构**:
+
 ```
 __tests__/
 └── unit/
@@ -211,6 +222,7 @@ __tests__/
 ```
 
 **文件**:
+
 - `__tests__/unit/store.test.ts` - 存储常量测试
 - `__tests__/unit/common/history.test.ts` - 历史记录工具函数测试
 
@@ -227,6 +239,7 @@ __tests__/
 **完整路径**: `d:\trea-cn\LXHistory_Sync\e2e\`
 
 **子目录结构**:
+
 ```
 e2e/
 ├── fixtures/
@@ -235,6 +248,7 @@ e2e/
 ```
 
 **文件**:
+
 - `e2e/smoke.spec.ts` - 构建产物冒烟测试
 - `e2e/fixtures/extension.ts` - 扩展加载辅助函数
 
@@ -248,14 +262,15 @@ e2e/
 
 所有 CI 工作流生成的报告都输出到系统临时目录，不会污染项目工作区：
 
-| 报告类型 | 本地路径 | CI 路径 (GitHub Actions) | 上传方式 |
-|---------|---------|------------------------|---------|
-| **单元测试报告** | 控制台输出 | `/tmp/test-results/unit-test-results.xml` | Artifact |
-| **E2E 测试报告** | `./playwright-report/` | `/tmp/playwright-report/` | Artifact |
-| **构建产物** | `./build/` | `./build/` (临时) | Artifact |
-| **代码覆盖率** | `./coverage/` | `./coverage/` (临时) | 不上传 |
+| 报告类型         | 本地路径               | CI 路径 (GitHub Actions)                  | 上传方式 |
+| ---------------- | ---------------------- | ----------------------------------------- | -------- |
+| **单元测试报告** | 控制台输出             | `/tmp/test-results/unit-test-results.xml` | Artifact |
+| **E2E 测试报告** | `./playwright-report/` | `/tmp/playwright-report/`                 | Artifact |
+| **构建产物**     | `./build/`             | `./build/` (临时)                         | Artifact |
+| **代码覆盖率**   | `./coverage/`          | `./coverage/` (临时)                      | 不上传   |
 
 **说明**:
+
 - CI 环境使用 `/tmp/` 目录存放所有生成的报告
 - 本地开发使用项目目录存放报告（已被 `.gitignore` 忽略）
 - 所有报告通过 `actions/upload-artifact` 上传到 GitHub Actions 的 artifact 存储
