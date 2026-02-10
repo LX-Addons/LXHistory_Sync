@@ -79,7 +79,7 @@ describe('getLocalHistory', () => {
     const mockItems = [
       { id: '1', url: 'https://example.com', title: 'Example', lastVisitTime: 1000, visitCount: 1 },
     ]
-    chrome.history.search = vi.fn((query, callback) => {
+    ;(chrome.history.search as unknown as ReturnType<typeof vi.fn>) = vi.fn((query, callback) => {
       callback(mockItems)
     })
 
@@ -107,20 +107,20 @@ describe('getLocalHistory', () => {
   })
 
   it('应该处理 chrome.runtime.lastError', async () => {
-    chrome.history.search = vi.fn((query, callback) => {
+    ;(chrome.history.search as unknown as ReturnType<typeof vi.fn>) = vi.fn((query, callback) => {
       chrome.runtime.lastError = { message: 'Test error' }
       callback([])
     })
 
     await expect(getLocalHistory()).rejects.toThrow('Test error')
-    chrome.runtime.lastError = null
+    chrome.runtime.lastError = undefined
   })
 
   it('应该处理空 URL', async () => {
     const mockItems = [
       { id: '1', url: undefined, title: 'No URL', lastVisitTime: 1000, visitCount: 1 },
     ]
-    chrome.history.search = vi.fn((query, callback) => {
+    ;(chrome.history.search as unknown as ReturnType<typeof vi.fn>) = vi.fn((query, callback) => {
       callback(mockItems)
     })
 
