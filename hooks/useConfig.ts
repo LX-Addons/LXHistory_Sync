@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Storage } from '@plasmohq/storage'
 import type { WebDAVConfig } from '~common/types'
 import { getMasterKey, encryptData, decryptData } from '~common/webdav'
+import { STATUS_CLEAR_DELAY } from '~common/utils'
+import { Logger } from '~common/logger'
 
 const storage = new Storage()
 
@@ -77,13 +79,13 @@ export function useConfig() {
       setStatus('保存成功！')
       setTimeout(() => {
         setStatus('')
-      }, 3000)
+      }, STATUS_CLEAR_DELAY)
     } catch (error) {
       setStatus('保存失败')
-      console.error('Failed to save config:', error)
+      Logger.error('Failed to save config', error)
       setTimeout(() => {
         setStatus('')
-      }, 3000)
+      }, STATUS_CLEAR_DELAY)
     }
   }
 

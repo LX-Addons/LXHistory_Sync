@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import type { IconSourceType, CheckboxStyleType } from '~common/types'
 import { useGeneralConfig } from '~hooks/useGeneralConfig'
 import CheckboxField from '~components/CheckboxField'
 import StatusMessage from '~components/StatusMessage'
@@ -69,7 +70,7 @@ export default function GeneralTab() {
             onChange={e =>
               setGeneralConfig({
                 ...generalConfig,
-                iconSource: e.target.value as any,
+                iconSource: e.target.value as IconSourceType,
               })
             }
           >
@@ -126,7 +127,7 @@ export default function GeneralTab() {
             onChange={e =>
               setGeneralConfig({
                 ...generalConfig,
-                checkboxStyle: e.target.value as any,
+                checkboxStyle: e.target.value as CheckboxStyleType,
               })
             }
           >

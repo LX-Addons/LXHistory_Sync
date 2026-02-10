@@ -2,6 +2,8 @@ import { Storage } from '@plasmohq/storage'
 import type { HistoryItem, WebDAVConfig, CloudSyncResult, KeyStrength } from './types'
 import { mergeHistory } from './history'
 import { WEBDAV_FILENAME } from '~store'
+import { Logger } from './logger'
+import { APP_NAME } from './utils'
 
 const storage = new Storage()
 const PBKDF2_ITERATIONS = 300000
@@ -27,34 +29,6 @@ async function clearSessionConfig(): Promise<void> {
   try {
     await chrome.storage.session.remove('webdav_config')
   } catch {}
-}
-
-enum LogLevel {
-  DEBUG = 0,
-  INFO = 1,
-  WARN = 2,
-  ERROR = 3,
-  NONE = 4,
-}
-
-const currentLogLevel = LogLevel.INFO
-
-function log(level: LogLevel, message: string, data?: any): void {
-  if (level >= currentLogLevel) {
-    const timestamp = new Date().toISOString()
-    const levelName = LogLevel[level]
-    const logMessage = `[${timestamp}] [${levelName}] ${message}`
-
-    if (level === LogLevel.ERROR) {
-      console.error(logMessage, data)
-    } else if (level === LogLevel.WARN) {
-      console.warn(logMessage, data)
-    } else if (level === LogLevel.INFO) {
-      console.log(logMessage, data)
-    } else {
-      console.log(logMessage, data)
-    }
-  }
 }
 
 interface ErrorRecovery {
@@ -266,7 +240,127 @@ function calculateKeyStrength(key: string): KeyStrength {
   return 'weak'
 }
 
-async function encrypt(data: any, key: string, type: string, salt?: string): Promise<string> {
+type EncryptionAlgorithm =
+  | AlgorithmIdentifier
+  | RsaOaepParams
+  | AesCtrParams
+  | AesCbcParams
+  | AesGcmParams
+
+async function deriveEncryptionKey(
+  keyMaterial: CryptoKey,
+  salt: string,
+  algorithm: string
+): Promise<CryptoKey> {
+  const encoder = new TextEncoder()
+
+  switch (algorithm) {
+    case 'aes-256-gcm':
+      return crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: encoder.encode(salt),
+          iterations: PBKDF2_ITERATIONS,
+          hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt']
+      )
+    case 'aes-256-ctr':
+      return crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: encoder.encode(salt),
+          iterations: PBKDF2_ITERATIONS,
+          hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'AES-CTR', length: 256 },
+        false,
+        ['encrypt']
+      )
+    case 'chacha20-poly1305':
+      return crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: encoder.encode(salt),
+          iterations: PBKDF2_ITERATIONS,
+          hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'ChaCha20-Poly1305', length: 256 },
+        false,
+        ['encrypt']
+      )
+    case 'aes-256-cbc':
+    default:
+      return crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: encoder.encode(salt),
+          iterations: PBKDF2_ITERATIONS,
+          hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'AES-CBC', length: 256 },
+        false,
+        ['encrypt']
+      )
+  }
+}
+
+function getIVLength(algorithm: string): number {
+  switch (algorithm) {
+    case 'aes-256-gcm':
+    case 'chacha20-poly1305':
+      return 12
+    case 'aes-256-ctr':
+    case 'aes-256-cbc':
+    default:
+      return 16
+  }
+}
+
+function createEncryptionAlgorithm(type: string, iv: Uint8Array): EncryptionAlgorithm {
+  const encoder = new TextEncoder()
+
+  switch (type) {
+    case 'aes-256-gcm':
+      return {
+        name: 'AES-GCM',
+        iv,
+        additionalData: encoder.encode(APP_NAME),
+      }
+    case 'aes-256-ctr':
+      return {
+        name: 'AES-CTR',
+        counter: iv,
+        length: 128,
+      }
+    case 'chacha20-poly1305':
+      return {
+        name: 'ChaCha20-Poly1305',
+        counter: iv,
+        length: 96,
+        additionalData: encoder.encode(APP_NAME),
+      }
+    case 'aes-256-cbc':
+    default:
+      return {
+        name: 'AES-CBC',
+        iv,
+      }
+  }
+}
+
+async function encrypt(
+  data: HistoryItem[],
+  key: string,
+  type: string,
+  salt?: string
+): Promise<string> {
   try {
     const jsonData = JSON.stringify(data)
     const encoder = new TextEncoder()
@@ -280,96 +374,10 @@ async function encrypt(data: any, key: string, type: string, salt?: string): Pro
       ['deriveBits', 'deriveKey']
     )
 
-    let encryptionKey: CryptoKey
-    let algorithm: AlgorithmIdentifier | RsaOaepParams | AesCtrParams | AesCbcParams | AesGcmParams
-    let iv: Uint8Array
-    let additionalData: Uint8Array
-
-    switch (type) {
-      case 'aes-256-gcm':
-        encryptionKey = await crypto.subtle.deriveKey(
-          {
-            name: 'PBKDF2',
-            salt: encoder.encode(actualSalt),
-            iterations: PBKDF2_ITERATIONS,
-            hash: 'SHA-256',
-          },
-          keyMaterial,
-          { name: 'AES-GCM', length: 256 },
-          false,
-          ['encrypt']
-        )
-        iv = crypto.getRandomValues(new Uint8Array(12))
-        additionalData = encoder.encode('LXHistory_Sync')
-        algorithm = {
-          name: 'AES-GCM',
-          iv,
-          additionalData,
-        }
-        break
-      case 'aes-256-ctr':
-        encryptionKey = await crypto.subtle.deriveKey(
-          {
-            name: 'PBKDF2',
-            salt: encoder.encode(actualSalt),
-            iterations: PBKDF2_ITERATIONS,
-            hash: 'SHA-256',
-          },
-          keyMaterial,
-          { name: 'AES-CTR', length: 256 },
-          false,
-          ['encrypt']
-        )
-        iv = crypto.getRandomValues(new Uint8Array(16))
-        algorithm = {
-          name: 'AES-CTR',
-          counter: iv,
-          length: 128,
-        }
-        break
-      case 'chacha20-poly1305':
-        encryptionKey = await crypto.subtle.deriveKey(
-          {
-            name: 'PBKDF2',
-            salt: encoder.encode(actualSalt),
-            iterations: PBKDF2_ITERATIONS,
-            hash: 'SHA-256',
-          },
-          keyMaterial,
-          { name: 'ChaCha20-Poly1305', length: 256 },
-          false,
-          ['encrypt']
-        )
-        iv = crypto.getRandomValues(new Uint8Array(12))
-        additionalData = encoder.encode('LXHistory_Sync')
-        algorithm = {
-          name: 'ChaCha20-Poly1305',
-          counter: iv,
-          length: 96,
-          additionalData,
-        }
-        break
-      case 'aes-256-cbc':
-      default:
-        encryptionKey = await crypto.subtle.deriveKey(
-          {
-            name: 'PBKDF2',
-            salt: encoder.encode(actualSalt),
-            iterations: PBKDF2_ITERATIONS,
-            hash: 'SHA-256',
-          },
-          keyMaterial,
-          { name: 'AES-CBC', length: 256 },
-          false,
-          ['encrypt']
-        )
-        iv = crypto.getRandomValues(new Uint8Array(16))
-        algorithm = {
-          name: 'AES-CBC',
-          iv,
-        }
-        break
-    }
+    const encryptionKey = await deriveEncryptionKey(keyMaterial, actualSalt, type)
+    const ivLength = getIVLength(type)
+    const iv = crypto.getRandomValues(new Uint8Array(ivLength))
+    const algorithm = createEncryptionAlgorithm(type, iv)
 
     const encrypted = await crypto.subtle.encrypt(
       algorithm,
@@ -401,12 +409,108 @@ async function encrypt(data: any, key: string, type: string, salt?: string): Pro
 
     return btoa(String.fromCharCode(...combined))
   } catch (error) {
-    console.error('Encryption failed:', error)
+    Logger.error('Encryption failed', error)
     throw new Error('加密失败', { cause: error })
   }
 }
 
-async function decrypt(encryptedData: string, key: string, type: string): Promise<any> {
+async function deriveDecryptionKey(
+  keyMaterial: CryptoKey,
+  salt: string,
+  algorithm: string
+): Promise<CryptoKey> {
+  const encoder = new TextEncoder()
+
+  switch (algorithm) {
+    case 'aes-256-gcm':
+      return crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: encoder.encode(salt),
+          iterations: PBKDF2_ITERATIONS,
+          hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['decrypt']
+      )
+    case 'aes-256-ctr':
+      return crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: encoder.encode(salt),
+          iterations: PBKDF2_ITERATIONS,
+          hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'AES-CTR', length: 256 },
+        false,
+        ['decrypt']
+      )
+    case 'chacha20-poly1305':
+      return crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: encoder.encode(salt),
+          iterations: PBKDF2_ITERATIONS,
+          hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'ChaCha20-Poly1305', length: 256 },
+        false,
+        ['decrypt']
+      )
+    case 'aes-256-cbc':
+    default:
+      return crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: encoder.encode(salt),
+          iterations: PBKDF2_ITERATIONS,
+          hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'AES-CBC', length: 256 },
+        false,
+        ['decrypt']
+      )
+  }
+}
+
+function createDecryptionAlgorithm(type: string, iv: Uint8Array): EncryptionAlgorithm {
+  const encoder = new TextEncoder()
+
+  switch (type) {
+    case 'aes-256-gcm':
+      return {
+        name: 'AES-GCM',
+        iv,
+        additionalData: encoder.encode(APP_NAME),
+      }
+    case 'aes-256-ctr':
+      return {
+        name: 'AES-CTR',
+        counter: iv,
+        length: 128,
+      }
+    case 'chacha20-poly1305':
+      return {
+        name: 'ChaCha20-Poly1305',
+        counter: iv,
+        length: 96,
+        additionalData: encoder.encode(APP_NAME),
+      }
+    case 'aes-256-cbc':
+    default:
+      return {
+        name: 'AES-CBC',
+        iv,
+      }
+  }
+}
+
+async function decrypt(encryptedData: string, key: string, type: string): Promise<HistoryItem[]> {
   try {
     const binaryData = atob(encryptedData)
     const combined = new Uint8Array(binaryData.length)
@@ -419,20 +523,8 @@ async function decrypt(encryptedData: string, key: string, type: string): Promis
     const saltBytes = combined.slice(0, saltLength)
     const salt = btoa(String.fromCharCode(...saltBytes))
 
-    let ivLength: number
+    const ivLength = getIVLength(type)
     const signatureLength = 32
-
-    switch (type) {
-      case 'aes-256-gcm':
-      case 'chacha20-poly1305':
-        ivLength = 12
-        break
-      case 'aes-256-ctr':
-      case 'aes-256-cbc':
-      default:
-        ivLength = 16
-        break
-    }
 
     const hmacKey = await crypto.subtle.importKey(
       'raw',
@@ -461,122 +553,22 @@ async function decrypt(encryptedData: string, key: string, type: string): Promis
       ['deriveBits', 'deriveKey']
     )
 
-    let decryptionKey: CryptoKey
-    let algorithm: AlgorithmIdentifier | RsaOaepParams | AesCtrParams | AesCbcParams | AesGcmParams
-    let iv: Uint8Array
-    let encrypted: Uint8Array
-    let additionalData: Uint8Array
-
-    switch (type) {
-      case 'aes-256-gcm':
-        decryptionKey = await crypto.subtle.deriveKey(
-          {
-            name: 'PBKDF2',
-            salt: encoder.encode(salt),
-            iterations: PBKDF2_ITERATIONS,
-            hash: 'SHA-256',
-          },
-          keyMaterial,
-          { name: 'AES-GCM', length: 256 },
-          false,
-          ['decrypt']
-        )
-        iv = combined.slice(saltLength, saltLength + ivLength)
-        encrypted = combined.slice(
-          saltLength + ivLength,
-          saltLength + ivLength + encryptedDataLength
-        )
-        additionalData = encoder.encode('LXHistory_Sync')
-        algorithm = {
-          name: 'AES-GCM',
-          iv,
-          additionalData,
-        }
-        break
-      case 'aes-256-ctr':
-        decryptionKey = await crypto.subtle.deriveKey(
-          {
-            name: 'PBKDF2',
-            salt: encoder.encode(salt),
-            iterations: PBKDF2_ITERATIONS,
-            hash: 'SHA-256',
-          },
-          keyMaterial,
-          { name: 'AES-CTR', length: 256 },
-          false,
-          ['decrypt']
-        )
-        iv = combined.slice(saltLength, saltLength + ivLength)
-        encrypted = combined.slice(
-          saltLength + ivLength,
-          saltLength + ivLength + encryptedDataLength
-        )
-        algorithm = {
-          name: 'AES-CTR',
-          counter: iv,
-          length: 128,
-        }
-        break
-      case 'chacha20-poly1305':
-        decryptionKey = await crypto.subtle.deriveKey(
-          {
-            name: 'PBKDF2',
-            salt: encoder.encode(salt),
-            iterations: PBKDF2_ITERATIONS,
-            hash: 'SHA-256',
-          },
-          keyMaterial,
-          { name: 'ChaCha20-Poly1305', length: 256 },
-          false,
-          ['decrypt']
-        )
-        iv = combined.slice(saltLength, saltLength + ivLength)
-        encrypted = combined.slice(
-          saltLength + ivLength,
-          saltLength + ivLength + encryptedDataLength
-        )
-        additionalData = encoder.encode('LXHistory_Sync')
-        algorithm = {
-          name: 'ChaCha20-Poly1305',
-          counter: iv,
-          length: 96,
-          additionalData,
-        }
-        break
-      case 'aes-256-cbc':
-      default:
-        decryptionKey = await crypto.subtle.deriveKey(
-          {
-            name: 'PBKDF2',
-            salt: encoder.encode(salt),
-            iterations: PBKDF2_ITERATIONS,
-            hash: 'SHA-256',
-          },
-          keyMaterial,
-          { name: 'AES-CBC', length: 256 },
-          false,
-          ['decrypt']
-        )
-        iv = combined.slice(saltLength, saltLength + ivLength)
-        encrypted = combined.slice(
-          saltLength + ivLength,
-          saltLength + ivLength + encryptedDataLength
-        )
-        algorithm = {
-          name: 'AES-CBC',
-          iv,
-        }
-        break
-    }
+    const decryptionKey = await deriveDecryptionKey(keyMaterial, salt, type)
+    const iv = combined.slice(saltLength, saltLength + ivLength)
+    const encrypted = combined.slice(
+      saltLength + ivLength,
+      saltLength + ivLength + encryptedDataLength
+    )
+    const algorithm = createDecryptionAlgorithm(type, iv)
 
     const decrypted = await crypto.subtle.decrypt(algorithm, decryptionKey, encrypted)
 
     const decoder = new TextDecoder()
     const jsonData = decoder.decode(decrypted)
 
-    return JSON.parse(jsonData)
+    return JSON.parse(jsonData) as HistoryItem[]
   } catch (error) {
-    console.error('Decryption failed:', error)
+    Logger.error('Decryption failed', error)
     throw new Error('解密失败，请检查加密密钥是否正确', { cause: error })
   }
 }
@@ -643,7 +635,7 @@ async function fetchWithRetry(
   maxRetries = 3,
   retryDelay = 1000
 ): Promise<Response> {
-  let lastError: any
+  let lastError: Error | null = null
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
@@ -658,14 +650,14 @@ async function fetchWithRetry(
       }
 
       throw new Error(`HTTP error ${response.status}`)
-    } catch (error: any) {
-      lastError = error
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
 
-      if (error.message === 'Authentication failed') {
-        throw error
+      if (lastError.message === 'Authentication failed') {
+        throw lastError
       }
 
-      console.warn(`Attempt ${attempt + 1} failed: ${error.message}`)
+      Logger.warn(`Attempt ${attempt + 1} failed`, lastError.message)
 
       if (attempt < maxRetries - 1) {
         await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)))
@@ -782,7 +774,7 @@ function handleHttpError(response: Response): CloudSyncResult {
   return createValidationResult(errorMessage)
 }
 
-async function parseResponseData(response: Response, config: WebDAVConfig): Promise<any> {
+async function parseResponseData(response: Response, config: WebDAVConfig): Promise<HistoryItem[]> {
   if (config.encryption?.enabled && config.encryption?.key) {
     const blob = await response.blob()
     const arrayBuffer = await blob.arrayBuffer()
@@ -791,7 +783,7 @@ async function parseResponseData(response: Response, config: WebDAVConfig): Prom
     return await decrypt(encryptedData, config.encryption.key, config.encryption.type)
   }
 
-  return await response.json()
+  return (await response.json()) as HistoryItem[]
 }
 
 function throwConfigError(errorMessage: string): never {
@@ -832,7 +824,7 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
     try {
       remoteHistory = await syncFromCloud()
     } catch {
-      console.log('No remote history found or first sync')
+      Logger.info('No remote history found or first sync')
     }
 
     const merged = await mergeHistory(localHistory, remoteHistory)
@@ -856,7 +848,7 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
       items: merged,
       message: '同步到云端成功！已合并数据。',
     }
-  } catch (error: unknown) {
+  } catch (error) {
     const recovery = getErrorRecovery(error as Error)
     return {
       success: false,
@@ -914,8 +906,8 @@ export async function syncFromCloud(): Promise<HistoryItem[]> {
     }
 
     return data
-  } catch (error: any) {
-    console.error('Sync from cloud failed:', error.message)
+  } catch (error) {
+    Logger.error('Sync from cloud failed', error)
     throw error
   } finally {
     await clearSessionConfig()
@@ -931,7 +923,6 @@ export {
   setMasterPassword,
   clearMasterPassword,
   verifyMasterPassword,
-  log,
   encryptData,
   decryptData,
 }

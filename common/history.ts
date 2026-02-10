@@ -1,12 +1,13 @@
 import type { HistoryItem } from './types'
+import { Logger } from './logger'
 
 export async function getLocalHistory(): Promise<HistoryItem[]> {
   return new Promise((resolve, reject) => {
     try {
-      console.log('Starting to get local history...')
+      Logger.info('Starting to get local history...')
 
       if (!chrome.history) {
-        console.error('chrome.history API is not available')
+        Logger.error('chrome.history API is not available')
         reject(new Error('History API is not available'))
         return
       }
@@ -19,12 +20,12 @@ export async function getLocalHistory(): Promise<HistoryItem[]> {
         },
         items => {
           if (chrome.runtime.lastError) {
-            console.error('Error searching history:', chrome.runtime.lastError)
+            Logger.error('Error searching history', chrome.runtime.lastError)
             reject(new Error(`Failed to get history: ${chrome.runtime.lastError.message}`))
             return
           }
 
-          console.log(`Found ${items.length} history items`)
+          Logger.info(`Found ${items.length} history items`)
 
           const formattedItems = items.map(item => ({
             id: item.id,
@@ -38,7 +39,7 @@ export async function getLocalHistory(): Promise<HistoryItem[]> {
         }
       )
     } catch (error) {
-      console.error('Unexpected error in getLocalHistory:', error)
+      Logger.error('Unexpected error in getLocalHistory', error)
       reject(error)
     }
   })

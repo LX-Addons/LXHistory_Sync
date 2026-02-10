@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Storage } from '@plasmohq/storage'
 import type { GeneralConfig, CheckboxStyleType, IconSourceType } from '~common/types'
 import { STORAGE_KEYS, DEFAULT_GENERAL_CONFIG } from '~store'
+import { getCheckboxClassName, STATUS_CLEAR_DELAY } from '~common/utils'
+import { Logger } from '~common/logger'
 
 const storage = new Storage()
 
@@ -32,30 +34,13 @@ export function useGeneralConfig() {
       setStatus('保存成功！')
       setTimeout(() => {
         setStatus('')
-      }, 3000)
+      }, STATUS_CLEAR_DELAY)
     } catch (error) {
       setStatus('保存失败')
-      console.error('Failed to save general config:', error)
+      Logger.error('Failed to save general config', error)
       setTimeout(() => {
         setStatus('')
-      }, 3000)
-    }
-  }
-
-  const getCheckboxClassName = (style: string) => {
-    switch (style) {
-      case 'modern':
-        return 'checkbox-modern'
-      case 'minimal':
-        return 'checkbox-minimal'
-      case 'classic':
-        return 'checkbox-classic'
-      case 'rounded':
-        return 'checkbox-rounded'
-      case 'toggle':
-        return 'checkbox-toggle'
-      default:
-        return 'custom-checkbox'
+      }, STATUS_CLEAR_DELAY)
     }
   }
 

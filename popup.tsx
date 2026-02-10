@@ -14,6 +14,8 @@ import { syncToCloud, syncFromCloud } from '~common/webdav'
 import HistoryItemComponent from '~components/HistoryItem'
 import SyncStatus from '~components/SyncStatus'
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from '~store'
+import { extractDomain, applyTheme, getDomainFaviconUrl, getLetterIcon } from '~common/utils'
+import { Logger } from '~common/logger'
 import './style.css'
 
 interface GroupedHistoryItem {
@@ -31,6 +33,35 @@ interface DomainGroupItemProps {
   onToggle: () => void
 }
 
+interface DomainIconProps {
+  domain: string
+  iconSource: IconSourceType
+}
+
+const DomainIcon: React.FC<DomainIconProps> = ({ domain, iconSource }) => {
+  const [hasError, setHasError] = useState(false)
+
+  if (iconSource === 'letter') {
+    return <span>{getLetterIcon(domain)}</span>
+  }
+
+  if (iconSource === 'none') {
+    return null
+  }
+
+  if (hasError) {
+    return <span>{getLetterIcon(domain)}</span>
+  }
+
+  return (
+    <img
+      src={getDomainFaviconUrl(domain, iconSource)}
+      alt={domain}
+      onError={() => setHasError(true)}
+    />
+  )
+}
+
 function DateGroupItem({ date }: { date: string }) {
   return <div className="date-group">{date}</div>
 }
@@ -42,40 +73,6 @@ function DomainGroupItem({
   iconSource,
   onToggle,
 }: DomainGroupItemProps) {
-  const getDomainFaviconUrl = (domain: string): string => {
-    if (!domain) return ''
-
-    switch (iconSource) {
-      case 'byteance':
-        return `https://f1.allesedv.com/${domain}/favicon.ico`
-      case 'google':
-        return `https://www.google.com/s2/favicons?domain=${domain}&sz=16`
-      case 'duckduckgo':
-        return `https://icons.duckduckgo.com/ip3/${domain}.ico`
-      default:
-        return ''
-    }
-  }
-
-  const getDomainIcon = (domain: string, iconSource: IconSourceType): React.ReactNode => {
-    if (iconSource === 'letter') {
-      return <span>{domain.charAt(0).toUpperCase()}</span>
-    }
-    if (iconSource !== 'none') {
-      return <img src={getDomainFaviconUrl(domain)} alt={domain} onError={handleImageError} />
-    }
-    return null
-  }
-
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const target = e.target as HTMLImageElement
-    target.style.display = 'none'
-    const textIcon = document.createElement('span')
-    const firstChar = domain.charAt(0).toUpperCase()
-    textIcon.textContent = firstChar.match(/[a-zA-Z0-9]/) ? firstChar : '🌐'
-    target.parentElement?.appendChild(textIcon)
-  }
-
   return (
     <button
       className={`domain-group ${isExpanded ? 'expanded' : 'collapsed'}`}
@@ -85,22 +82,15 @@ function DomainGroupItem({
       aria-expanded={isExpanded}
     >
       <div className="domain-header">
-        <div className="domain-icon">{getDomainIcon(domain, iconSource)}</div>
+        <div className="domain-icon">
+          <DomainIcon domain={domain} iconSource={iconSource} />
+        </div>
         <span className="domain-name">{domain}</span>
         <span className="domain-count">{count} 条</span>
         <span className="domain-toggle">{isExpanded ? '▼' : '▶'}</span>
       </div>
     </button>
   )
-}
-
-const extractDomain = (url: string) => {
-  try {
-    const urlObj = new URL(url)
-    return urlObj.hostname
-  } catch {
-    return '未知域名'
-  }
 }
 
 const storage = new Storage()
@@ -147,7 +137,7 @@ const Popup: React.FC = () => {
   }
 
   useEffect(() => {
-    applyTheme()
+    applyTheme(themeConfig.theme)
   }, [themeConfig])
 
   const loadThemeConfig = async () => {
@@ -157,7 +147,7 @@ const Popup: React.FC = () => {
         setThemeConfig(savedThemeConfig)
       }
     } catch (error) {
-      console.error('Failed to load theme config:', error)
+      Logger.error('Failed to load theme config', error)
     }
   }
 
@@ -168,22 +158,7 @@ const Popup: React.FC = () => {
         setGeneralConfig(savedGeneralConfig)
       }
     } catch (error) {
-      console.error('Failed to load general config:', error)
-    }
-  }
-
-  const applyTheme = () => {
-    const root = document.documentElement
-    const isDarkMode =
-      themeConfig.theme === 'dark' ||
-      (themeConfig.theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-
-    if (isDarkMode) {
-      root.classList.add('dark-theme')
-      root.classList.remove('light-theme')
-    } else {
-      root.classList.add('light-theme')
-      root.classList.remove('dark-theme')
+      Logger.error('Failed to load general config', error)
     }
   }
 
@@ -214,7 +189,7 @@ const Popup: React.FC = () => {
       const config = await storage.get<WebDAVConfig>('webdav_config')
       setHasWebDAVConfig(!!config?.url && !!config?.username)
     } catch (error) {
-      console.error('Failed to check WebDAV config:', error)
+      Logger.error('Failed to check WebDAV config', error)
       setHasWebDAVConfig(false)
     }
   }
@@ -336,16 +311,16 @@ const Popup: React.FC = () => {
   const loadHistory = async () => {
     setIsLoading(true)
     try {
-      console.log('Loading history...')
+      Logger.info('Loading history...')
       const items = await getLocalHistory()
-      console.log(`Loaded ${items.length} history items`)
+      Logger.info(`Loaded ${items.length} history items`)
       const groupedItems = groupHistoryByDate(items)
       setAllHistoryItems(groupedItems)
       setHistoryItems(groupedItems)
     } catch (error) {
-      console.error('Failed to load history:', error)
+      Logger.error('Failed to load history', error)
       setSyncStatus({
-        message: `加载本地历史失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        message: `加载本地历史失败`,
         type: 'error',
       })
     } finally {
@@ -371,10 +346,10 @@ const Popup: React.FC = () => {
       }
     } catch (error) {
       setSyncStatus({
-        message: `同步失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        message: '同步失败',
         type: 'error',
       })
-      console.error('Failed to sync to cloud:', error)
+      Logger.error('Failed to sync to cloud', error)
     }
   }
 
@@ -389,9 +364,10 @@ const Popup: React.FC = () => {
         message: `从云端同步成功！获取到 ${remoteItems.length} 条记录。`,
         type: 'success',
       })
-    } catch (error: any) {
-      setSyncStatus({ message: error.message || '同步失败', type: 'error' })
-      console.error('Failed to sync from cloud:', error)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '同步失败'
+      setSyncStatus({ message: errorMessage, type: 'error' })
+      Logger.error('Failed to sync from cloud', error)
     }
   }
 

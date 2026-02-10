@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import type { WebDAVConfig, EncryptionType, CheckboxStyleType, KeyStrength } from '~common/types'
 import { validateUrl, validatePassword, validateEncryptionKey } from '~common/webdav'
+import { getCheckboxClassName } from '~common/utils'
 
 interface ConfigFormProps {
   config: WebDAVConfig
@@ -19,23 +20,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 }) => {
   const [keyStrength, setKeyStrength] = useState<KeyStrength>('weak')
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
-
-  const getCheckboxClassName = (style: string) => {
-    switch (style) {
-      case 'modern':
-        return 'checkbox-modern'
-      case 'minimal':
-        return 'checkbox-minimal'
-      case 'classic':
-        return 'checkbox-classic'
-      case 'rounded':
-        return 'checkbox-rounded'
-      case 'toggle':
-        return 'checkbox-toggle'
-      default:
-        return 'custom-checkbox'
-    }
-  }
 
   const getStrengthColor = (strength: KeyStrength): string => {
     switch (strength) {

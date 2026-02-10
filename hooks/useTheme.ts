@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Storage } from '@plasmohq/storage'
 import type { ThemeType } from '~common/types'
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG } from '~store'
+import { applyTheme, STATUS_CLEAR_DELAY } from '~common/utils'
+import { Logger } from '~common/logger'
 
 const storage = new Storage()
 
@@ -16,23 +18,8 @@ export function useTheme() {
   }, [])
 
   useEffect(() => {
-    applyTheme()
+    applyTheme(themeConfig.theme)
   }, [themeConfig])
-
-  const applyTheme = () => {
-    const root = document.documentElement
-    const isDarkMode =
-      themeConfig.theme === 'dark' ||
-      (themeConfig.theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-
-    if (isDarkMode) {
-      root.classList.add('dark-theme')
-      root.classList.remove('light-theme')
-    } else {
-      root.classList.add('light-theme')
-      root.classList.remove('dark-theme')
-    }
-  }
 
   const loadThemeConfig = async () => {
     const savedThemeConfig = await storage.get<{ theme: ThemeType }>(STORAGE_KEYS.THEME_CONFIG)
@@ -49,13 +36,13 @@ export function useTheme() {
       setStatus('保存成功！')
       setTimeout(() => {
         setStatus('')
-      }, 3000)
+      }, STATUS_CLEAR_DELAY)
     } catch (error) {
       setStatus('保存失败')
-      console.error('Failed to save theme config:', error)
+      Logger.error('Failed to save theme config', error)
       setTimeout(() => {
         setStatus('')
-      }, 3000)
+      }, STATUS_CLEAR_DELAY)
     }
   }
 
@@ -64,6 +51,5 @@ export function useTheme() {
     setThemeConfig,
     status,
     handleSave,
-    applyTheme,
   }
 }

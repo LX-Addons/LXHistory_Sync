@@ -1,10 +1,38 @@
-import React from 'react'
-import type { HistoryItem as HistoryItemType } from '~common/types'
+import React, { useState } from 'react'
+import type { HistoryItem as HistoryItemType, IconSourceType } from '~common/types'
+import { extractDomain, getFaviconUrl, getLetterIcon, formatTime } from '~common/utils'
 
 interface HistoryItemProps {
   item: HistoryItemType
   showUrls?: boolean
-  iconSource?: string
+  iconSource?: IconSourceType
+}
+
+interface FaviconProps {
+  url: string
+  iconSource: IconSourceType
+}
+
+const Favicon: React.FC<FaviconProps> = ({ url, iconSource }) => {
+  const [hasError, setHasError] = useState(false)
+  const domain = extractDomain(url)
+
+  if (iconSource === 'letter' || hasError) {
+    return <div className="history-item-icon">{getLetterIcon(domain)}</div>
+  }
+
+  if (iconSource === 'none') {
+    return null
+  }
+
+  return (
+    <img
+      className="history-item-icon"
+      src={getFaviconUrl(domain, iconSource)}
+      alt=""
+      onError={() => setHasError(true)}
+    />
+  )
 }
 
 const HistoryItem: React.FC<HistoryItemProps> = ({
@@ -18,47 +46,6 @@ const HistoryItem: React.FC<HistoryItemProps> = ({
     }
   }
 
-  const extractDomain = (url: string) => {
-    try {
-      const urlObj = new URL(url)
-      return urlObj.hostname
-    } catch {
-      let domain = url
-      domain = domain.replace(/^https?:\/\//, '')
-      domain = domain.split('/')[0]
-      return domain || ''
-    }
-  }
-
-  const getFaviconUrl = (url: string) => {
-    const domain = extractDomain(url)
-    if (!domain) return ''
-
-    switch (iconSource) {
-      case 'byteance':
-        return `https://f1.allesedv.com/${domain}/favicon.ico`
-      case 'google':
-        return `https://www.google.com/s2/favicons?domain=${domain}&sz=16`
-      case 'duckduckgo':
-        return `https://icons.duckduckgo.com/ip3/${domain}.ico`
-      default:
-        return ''
-    }
-  }
-
-  const getLetterIcon = (url: string) => {
-    const domain = extractDomain(url)
-    if (domain) {
-      return domain.charAt(0).toUpperCase()
-    }
-    return '🌐'
-  }
-
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
-
   return (
     <button
       className="history-item"
@@ -68,23 +55,7 @@ const HistoryItem: React.FC<HistoryItemProps> = ({
     >
       {item.url && iconSource !== 'none' && (
         <div className="history-item-icon-container">
-          {iconSource === 'letter' ? (
-            <div className="history-item-icon">{getLetterIcon(item.url)}</div>
-          ) : (
-            <img
-              className="history-item-icon"
-              src={getFaviconUrl(item.url)}
-              alt=""
-              onError={e => {
-                const target = e.target as HTMLImageElement
-                target.style.display = 'none'
-                const placeholder = document.createElement('div')
-                placeholder.className = 'history-item-icon'
-                placeholder.textContent = '🌐'
-                target.parentElement?.appendChild(placeholder)
-              }}
-            />
-          )}
+          <Favicon url={item.url} iconSource={iconSource} />
         </div>
       )}
       <div className="history-item-content">

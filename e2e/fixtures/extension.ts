@@ -49,7 +49,7 @@ export async function getExtensionId(context: BrowserContext): Promise<string> {
   if (page) {
     try {
       const extensionId = await page.evaluate(() => {
-        return (window as any).chrome?.runtime?.id
+        return (window as { chrome?: { runtime?: { id?: string } } }).chrome?.runtime?.id
       })
       if (extensionId) {
         console.log('Found extension ID from page:', extensionId)

@@ -1,5 +1,6 @@
 import { getLocalHistory } from '~common/history'
-import { syncToCloud, log } from '~common/webdav'
+import { syncToCloud } from '~common/webdav'
+import { Logger } from '~common/logger'
 
 let syncInterval: number | null = null
 const DEFAULT_SYNC_INTERVAL = 60 * 60 * 1000
@@ -7,19 +8,19 @@ let isSyncing = false
 
 async function performScheduledSync() {
   if (isSyncing) {
-    log(3, 'Scheduled sync already in progress, skipping')
+    Logger.info('Scheduled sync already in progress, skipping')
     return
   }
 
   isSyncing = true
 
   try {
-    log(1, 'Performing scheduled sync')
+    Logger.info('Performing scheduled sync')
     const settings = await chrome.storage.local.get('general_config')
     const syncEnabled = settings.general_config?.autoSyncEnabled ?? false
 
     if (!syncEnabled) {
-      log(1, 'Auto sync is disabled')
+      Logger.info('Auto sync is disabled')
       return
     }
 
@@ -27,7 +28,7 @@ async function performScheduledSync() {
     const { url, username, password } = webDavSettings.webdav_config || {}
 
     if (!url || !username || !password) {
-      log(1, 'WebDAV settings not configured')
+      Logger.info('WebDAV settings not configured')
       return
     }
 
@@ -35,13 +36,13 @@ async function performScheduledSync() {
     const rawHistoryItems = historyItems.map(item => item)
 
     const result = await syncToCloud(rawHistoryItems)
-    log(1, 'Scheduled sync completed:', result)
+    Logger.info('Scheduled sync completed', result)
 
     if (result.success) {
       await chrome.storage.local.set({ lastSyncTime: new Date().toISOString() })
     }
   } catch (error) {
-    log(3, 'Scheduled sync failed:', error)
+    Logger.error('Scheduled sync failed', error)
   } finally {
     isSyncing = false
   }
@@ -55,7 +56,7 @@ function startSyncTimer() {
     const syncEnabled = settings.general_config?.autoSyncEnabled ?? false
 
     if (syncEnabled) {
-      console.log(`LXHistory_Sync: Starting sync timer with interval ${interval}ms`)
+      Logger.info(`Starting sync timer with interval ${interval}ms`)
       syncInterval = self.setInterval(performScheduledSync, interval)
     }
   })
@@ -69,11 +70,11 @@ function clearSyncTimer() {
 }
 
 self.addEventListener('install', () => {
-  console.log('LXHistory_Sync: Service Worker installed')
+  Logger.info('Service Worker installed')
 })
 
 self.addEventListener('activate', () => {
-  console.log('LXHistory_Sync: Service Worker activated')
+  Logger.info('Service Worker activated')
   startSyncTimer()
 
   performScheduledSync()
@@ -81,17 +82,17 @@ self.addEventListener('activate', () => {
 
 self.addEventListener('message', event => {
   if (event.data?.type === 'SYNC_DATA') {
-    console.log('LXHistory_Sync: Sync requested from popup')
+    Logger.info('Sync requested from popup')
     performScheduledSync()
   } else if (event.data?.type === 'UPDATE_SYNC_SETTINGS') {
-    console.log('LXHistory_Sync: Sync settings updated')
+    Logger.info('Sync settings updated')
     startSyncTimer()
   }
 })
 
 self.addEventListener('storage', event => {
   if (event.key === 'general_config' || event.key === 'webdav_config') {
-    console.log('LXHistory_Sync: Settings changed, restarting sync timer')
+    Logger.info('Settings changed, restarting sync timer')
     startSyncTimer()
   }
 })

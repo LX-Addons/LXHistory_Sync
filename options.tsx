@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import WebDAVTab from '~components/WebDAVTab'
 import ThemeTab from '~components/ThemeTab'
 import GeneralTab from '~components/GeneralTab'
@@ -10,11 +10,22 @@ type TabType = 'webdav' | 'theme' | 'general' | 'security'
 
 const Options: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('webdav')
-  const { applyTheme } = useTheme()
+  const { themeConfig } = useTheme()
 
-  React.useEffect(() => {
-    applyTheme()
-  }, [])
+  useEffect(() => {
+    const root = document.documentElement
+    const isDarkMode =
+      themeConfig.theme === 'dark' ||
+      (themeConfig.theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+    if (isDarkMode) {
+      root.classList.add('dark-theme')
+      root.classList.remove('light-theme')
+    } else {
+      root.classList.add('light-theme')
+      root.classList.remove('dark-theme')
+    }
+  }, [themeConfig])
 
   return (
     <div className="options-container">
