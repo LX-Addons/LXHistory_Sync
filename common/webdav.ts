@@ -211,7 +211,9 @@ async function hashPassword(password: string): Promise<string> {
 }
 
 async function getMasterKey(): Promise<CryptoKey | null> {
-  const masterPasswordData = await storage.get<{ hash: string; salt: string }>('master_password_data')
+  const masterPasswordData = await storage.get<{ hash: string; salt: string }>(
+    'master_password_data'
+  )
   if (!masterPasswordData || !masterPasswordData.salt) {
     return null
   }
@@ -225,7 +227,9 @@ async function getMasterKey(): Promise<CryptoKey | null> {
 }
 
 async function verifyMasterPassword(password: string): Promise<boolean> {
-  const masterPasswordData = await storage.get<{ hash: string; salt: string }>('master_password_data')
+  const masterPasswordData = await storage.get<{ hash: string; salt: string }>(
+    'master_password_data'
+  )
   if (!masterPasswordData || !masterPasswordData.hash) {
     return false
   }
