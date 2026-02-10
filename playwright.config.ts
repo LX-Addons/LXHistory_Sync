@@ -1,12 +1,18 @@
 import { defineConfig, devices } from '@playwright/test'
+import * as os from 'os'
+import * as path from 'path'
+
+const isCI = !!process.env.CI
 
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: [['html'], ['list']],
+  forbidOnly: isCI,
+  retries: isCI ? 2 : 0,
+  workers: isCI ? 1 : undefined,
+  reporter: isCI
+    ? [['html', { outputFolder: path.join(os.tmpdir(), 'playwright-report') }], ['list']]
+    : [['html'], ['list']],
   use: {
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
