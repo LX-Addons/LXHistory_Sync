@@ -3,9 +3,6 @@ import { getExtensionId } from './fixtures/extension'
 
 test.describe('Options 页面', () => {
   test('应该正确加载 options 页面', async ({ page, context }) => {
-    // 等待 service worker 启动
-    await context.waitForEvent('serviceworker')
-
     const extensionId = await getExtensionId(context)
     console.log('Extension ID:', extensionId)
 
@@ -25,7 +22,6 @@ test.describe('Options 页面', () => {
   })
 
   test('应该显示所有设置标签', async ({ page, context }) => {
-    await context.waitForEvent('serviceworker')
     const extensionId = await getExtensionId(context)
 
     await page.goto(`chrome-extension://${extensionId}/options.html`)
@@ -41,7 +37,6 @@ test.describe('Options 页面', () => {
   })
 
   test('应该能切换到 WebDAV 标签', async ({ page, context }) => {
-    await context.waitForEvent('serviceworker')
     const extensionId = await getExtensionId(context)
 
     await page.goto(`chrome-extension://${extensionId}/options.html`)

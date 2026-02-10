@@ -3,9 +3,6 @@ import { getExtensionId } from './fixtures/extension'
 
 test.describe('Popup 页面', () => {
   test('应该正确加载 popup 页面', async ({ page, context }) => {
-    // 等待 service worker 启动
-    await context.waitForEvent('serviceworker')
-
     const extensionId = await getExtensionId(context)
     console.log('Extension ID:', extensionId)
 
@@ -25,7 +22,6 @@ test.describe('Popup 页面', () => {
   })
 
   test('应该显示设置按钮', async ({ page, context }) => {
-    await context.waitForEvent('serviceworker')
     const extensionId = await getExtensionId(context)
 
     await page.goto(`chrome-extension://${extensionId}/popup.html`)
@@ -39,7 +35,6 @@ test.describe('Popup 页面', () => {
   })
 
   test('历史记录列表容器应该存在', async ({ page, context }) => {
-    await context.waitForEvent('serviceworker')
     const extensionId = await getExtensionId(context)
 
     await page.goto(`chrome-extension://${extensionId}/popup.html`)

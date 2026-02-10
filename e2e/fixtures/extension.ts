@@ -2,38 +2,65 @@ import type { BrowserContext } from '@playwright/test'
 import path from 'path'
 
 export async function getExtensionId(context: BrowserContext): Promise<string> {
-  // 等待 service worker 启动，设置超时
+  // 尝试多种方式获取扩展 ID
+
+  // 方式1: 通过 service worker
   let [background] = context.serviceWorkers()
-  if (!background) {
-    console.log('Waiting for service worker...')
-    try {
-      background = await context.waitForEvent('serviceworker', { timeout: 30000 })
-      console.log('Service worker found:', background.url())
-    } catch (e) {
-      console.error('Service worker not found:', e)
-      // 列出所有 service workers
-      const workers = context.serviceWorkers()
-      console.log('Available service workers:', workers.length)
-      workers.forEach((w, i) => console.log(`Worker ${i}:`, w.url()))
-      throw new Error('Service worker not found')
+  if (background) {
+    const url = background.url()
+    console.log('Found service worker:', url)
+    const match = url.match(/chrome-extension:\/\/([^/]+)/)
+    if (match) {
+      console.log('Extracted Extension ID from service worker:', match[1])
+      return match[1]
     }
-  } else {
-    console.log('Service worker already available:', background.url())
   }
 
-  const url = background.url()
-  console.log('Service worker URL:', url)
-
-  // 从 URL 中提取扩展 ID
-  // URL 格式: chrome-extension://<extension-id>/...
-  const match = url.match(/chrome-extension:\/\/([^/]+)/)
-  if (!match) {
-    throw new Error(`Could not extract extension ID from URL: ${url}`)
+  // 方式2: 等待 service worker 启动
+  console.log('Waiting for service worker...')
+  try {
+    background = await context.waitForEvent('serviceworker', { timeout: 10000 })
+    const url = background.url()
+    console.log('Service worker found:', url)
+    const match = url.match(/chrome-extension:\/\/([^/]+)/)
+    if (match) {
+      console.log('Extracted Extension ID:', match[1])
+      return match[1]
+    }
+  } catch (e) {
+    console.log('Service worker not found, trying other methods...')
   }
 
-  const extensionId = match[1]
-  console.log('Extracted Extension ID:', extensionId)
-  return extensionId
+  // 方式3: 通过 background page (Manifest V2)
+  const pages = context.backgroundPages()
+  if (pages.length > 0) {
+    const url = pages[0].url()
+    console.log('Found background page:', url)
+    const match = url.match(/chrome-extension:\/\/([^/]+)/)
+    if (match) {
+      console.log('Extracted Extension ID from background page:', match[1])
+      return match[1]
+    }
+  }
+
+  // 方式4: 尝试从页面获取
+  console.log('Trying to get extension ID from page...')
+  const page = context.pages()[0]
+  if (page) {
+    try {
+      const extensionId = await page.evaluate(() => {
+        return (window as any).chrome?.runtime?.id
+      })
+      if (extensionId) {
+        console.log('Found extension ID from page:', extensionId)
+        return extensionId
+      }
+    } catch (e) {
+      console.log('Could not get extension ID from page')
+    }
+  }
+
+  throw new Error('Could not get extension ID')
 }
 
 export function getExtensionPath(): string {
