@@ -6,7 +6,6 @@ import { WEBDAV_FILENAME } from '~store'
 const storage = new Storage()
 const PBKDF2_ITERATIONS = 300000
 const SALT_LENGTH = 16
-const MASTER_KEY_SALT = 'LXHistory_Sync_Master_Key_Salt'
 
 async function getSessionConfig(): Promise<WebDAVConfig | null> {
   try {
@@ -136,7 +135,7 @@ function generateSalt(): string {
   return btoa(String.fromCharCode(...salt))
 }
 
-async function deriveMasterKey(masterPassword: string): Promise<CryptoKey> {
+async function deriveMasterKey(masterPassword: string, salt: string): Promise<CryptoKey> {
   const encoder = new TextEncoder()
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
@@ -149,8 +148,8 @@ async function deriveMasterKey(masterPassword: string): Promise<CryptoKey> {
   return await crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: encoder.encode(MASTER_KEY_SALT),
-      iterations: 100000,
+      salt: encoder.encode(salt),
+      iterations: PBKDF2_ITERATIONS,
       hash: 'SHA-256',
     },
     keyMaterial,
@@ -203,21 +202,48 @@ async function decryptData(encryptedData: string, key: CryptoKey): Promise<strin
   return decoder.decode(decrypted)
 }
 
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(password)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
 async function getMasterKey(): Promise<CryptoKey | null> {
-  const masterPassword = await storage.get('master_password')
-  if (!masterPassword) {
+  const masterPasswordData = await storage.get<{ hash: string; salt: string }>('master_password_data')
+  if (!masterPasswordData || !masterPasswordData.salt) {
     return null
   }
 
-  return await deriveMasterKey(masterPassword as string)
+  const inputPassword = await storage.get<string>('master_password_input')
+  if (!inputPassword) {
+    return null
+  }
+
+  return await deriveMasterKey(inputPassword, masterPasswordData.salt)
+}
+
+async function verifyMasterPassword(password: string): Promise<boolean> {
+  const masterPasswordData = await storage.get<{ hash: string; salt: string }>('master_password_data')
+  if (!masterPasswordData || !masterPasswordData.hash) {
+    return false
+  }
+
+  const inputHash = await hashPassword(password)
+  return inputHash === masterPasswordData.hash
 }
 
 async function setMasterPassword(password: string): Promise<void> {
-  await storage.set('master_password', password)
+  const hash = await hashPassword(password)
+  const salt = generateSalt()
+  await storage.set('master_password_data', { hash, salt })
+  await storage.set('master_password_input', password)
 }
 
 async function clearMasterPassword(): Promise<void> {
-  await storage.remove('master_password')
+  await storage.remove('master_password_data')
+  await storage.remove('master_password_input')
 }
 
 function calculateKeyStrength(key: string): KeyStrength {
@@ -582,8 +608,8 @@ function validateUrl(url: string): { isValid: boolean; error?: string } {
 }
 
 function validatePassword(password: string): { isValid: boolean; error?: string } {
-  if (!password || password.length < 4) {
-    return { isValid: false, error: '密码长度至少为 4 个字符' }
+  if (!password || password.length < 8) {
+    return { isValid: false, error: '密码长度至少为 8 个字符' }
   }
 
   return { isValid: true }
@@ -900,6 +926,7 @@ export {
   getMasterKey,
   setMasterPassword,
   clearMasterPassword,
+  verifyMasterPassword,
   log,
   encryptData,
   decryptData,

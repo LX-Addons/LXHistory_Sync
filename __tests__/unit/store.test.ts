@@ -21,7 +21,7 @@ describe('DEFAULT_GENERAL_CONFIG', () => {
     expect(DEFAULT_GENERAL_CONFIG.checkboxStyle).toBe('toggle')
     expect(DEFAULT_GENERAL_CONFIG.collapseDomainHistory).toBe(false)
     expect(DEFAULT_GENERAL_CONFIG.showUrls).toBe(false)
-    expect(DEFAULT_GENERAL_CONFIG.iconSource).toBe('byteance')
+    expect(DEFAULT_GENERAL_CONFIG.iconSource).toBe('letter')
     expect(DEFAULT_GENERAL_CONFIG.autoSyncEnabled).toBe(false)
     expect(DEFAULT_GENERAL_CONFIG.syncInterval).toBe(3600000)
   })

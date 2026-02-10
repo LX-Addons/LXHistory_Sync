@@ -10,7 +10,7 @@ export const DEFAULT_GENERAL_CONFIG = {
   checkboxStyle: 'toggle',
   collapseDomainHistory: false,
   showUrls: false,
-  iconSource: 'byteance',
+  iconSource: 'letter',
   autoSyncEnabled: false,
   syncInterval: 3600000,
 }
