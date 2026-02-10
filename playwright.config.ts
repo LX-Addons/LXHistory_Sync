@@ -17,7 +17,7 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'on-first-retry',
-    headless: false, // 扩展测试需要 headed 模式
+    headless: true, // CI 环境中使用 headless，xvfb 提供虚拟显示
   },
   projects: [
     {
