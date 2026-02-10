@@ -80,8 +80,9 @@ jobs:
 
       - name: Build extension
         run: |
-          # Use script to simulate a TTY for Plasmo
-          script -q -e -c "npm run build:ci" /dev/null
+          # Clean and rebuild
+          rm -rf .plasmo build
+          npm run build:ci
         env:
           CI: true
           NODE_ENV: production
