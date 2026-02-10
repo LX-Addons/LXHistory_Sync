@@ -12,7 +12,7 @@ export default defineConfig({
   workers: isCI ? 1 : undefined,
   reporter: isCI
     ? [['html', { outputFolder: path.join(os.tmpdir(), 'playwright-report') }], ['list']]
-    : [['html'], ['list']],
+    : [['list']],
   use: {
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
