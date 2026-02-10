@@ -17,6 +17,9 @@ coverage/
 .trae/
 debug.log
 
+# Memory and MCP data
+memory/
+
 # Logs
 logs
 *.log

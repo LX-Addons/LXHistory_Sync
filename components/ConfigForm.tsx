@@ -1,137 +1,144 @@
-import React, { useState } from "react";
-import type { WebDAVConfig, EncryptionType, CheckboxStyleType, KeyStrength } from "~common/types";
-import { calculateKeyStrength, validateUrl, validatePassword, validateEncryptionKey } from "~common/webdav";
+import React, { useState } from 'react'
+import type { WebDAVConfig, EncryptionType, CheckboxStyleType, KeyStrength } from '~common/types'
+import { validateUrl, validatePassword, validateEncryptionKey } from '~common/webdav'
 
 interface ConfigFormProps {
-  config: WebDAVConfig;
-  status: string;
-  onConfigChange: (config: WebDAVConfig) => void;
-  onSubmit: (e: React.FormEvent) => void;
-  checkboxStyle?: CheckboxStyleType;
+  config: WebDAVConfig
+  status: string
+  onConfigChange: (config: WebDAVConfig) => void
+  onSubmit: (e: React.FormEvent) => void
+  checkboxStyle?: CheckboxStyleType
 }
 
-const ConfigForm: React.FC<ConfigFormProps> = ({ config, status, onConfigChange, onSubmit, checkboxStyle = "default" }) => {
-  const [keyStrength, setKeyStrength] = useState<KeyStrength>("weak");
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  
+const ConfigForm: React.FC<ConfigFormProps> = ({
+  config,
+  status,
+  onConfigChange,
+  onSubmit,
+  checkboxStyle = 'default',
+}) => {
+  const [keyStrength, setKeyStrength] = useState<KeyStrength>('weak')
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+
   const getCheckboxClassName = (style: string) => {
     switch (style) {
-      case "modern":
-        return "checkbox-modern";
-      case "minimal":
-        return "checkbox-minimal";
-      case "classic":
-        return "checkbox-classic";
-      case "rounded":
-        return "checkbox-rounded";
-      case "toggle":
-        return "checkbox-toggle";
+      case 'modern':
+        return 'checkbox-modern'
+      case 'minimal':
+        return 'checkbox-minimal'
+      case 'classic':
+        return 'checkbox-classic'
+      case 'rounded':
+        return 'checkbox-rounded'
+      case 'toggle':
+        return 'checkbox-toggle'
       default:
-        return "custom-checkbox";
+        return 'custom-checkbox'
     }
-  };
-  
+  }
+
   const getStrengthColor = (strength: KeyStrength): string => {
     switch (strength) {
-      case "weak":
-        return "#f44336";
-      case "medium":
-        return "#ff9800";
-      case "strong":
-        return "#4CAF50";
+      case 'weak':
+        return '#f44336'
+      case 'medium':
+        return '#ff9800'
+      case 'strong':
+        return '#4CAF50'
       default:
-        return "#9e9e9e";
+        return '#9e9e9e'
     }
-  };
-  
+  }
+
   const getStrengthText = (strength: KeyStrength): string => {
     switch (strength) {
-      case "weak":
-        return "弱";
-      case "medium":
-        return "中";
-      case "strong":
-        return "强";
+      case 'weak':
+        return '弱'
+      case 'medium':
+        return '中'
+      case 'strong':
+        return '强'
       default:
-        return "未知";
+        return '未知'
     }
-  };
+  }
 
   const getStrengthWidth = (strength: KeyStrength): string => {
     switch (strength) {
-      case "weak":
-        return "33%";
-      case "medium":
-        return "66%";
-      case "strong":
-        return "100%";
+      case 'weak':
+        return '33%'
+      case 'medium':
+        return '66%'
+      case 'strong':
+        return '100%'
       default:
-        return "0%";
+        return '0%'
     }
-  };
+  }
 
   const handleUrlChange = (value: string) => {
-    const validation = validateUrl(value);
+    const validation = validateUrl(value)
     setValidationErrors(prev => ({
       ...prev,
-      url: validation.isValid ? "" : validation.error || ""
-    }));
-    onConfigChange({ ...config, url: value });
-  };
-  
+      url: validation.isValid ? '' : validation.error || '',
+    }))
+    onConfigChange({ ...config, url: value })
+  }
+
   const handlePasswordChange = (value: string) => {
-    const validation = validatePassword(value);
+    const validation = validatePassword(value)
     setValidationErrors(prev => ({
       ...prev,
-      password: validation.isValid ? "" : validation.error || ""
-    }));
-    onConfigChange({ ...config, password: value });
-  };
-  
+      password: validation.isValid ? '' : validation.error || '',
+    }))
+    onConfigChange({ ...config, password: value })
+  }
+
   const handleKeyChange = (value: string) => {
-    const validation = validateEncryptionKey(value);
-    setKeyStrength(validation.strength);
+    const validation = validateEncryptionKey(value)
+    setKeyStrength(validation.strength)
     setValidationErrors(prev => ({
       ...prev,
-      encryptionKey: validation.isValid ? "" : validation.error || ""
-    }));
-    onConfigChange({ 
-      ...config, 
-      encryption: { 
-        ...config.encryption, 
+      encryptionKey: validation.isValid ? '' : validation.error || '',
+    }))
+    onConfigChange({
+      ...config,
+      encryption: {
+        ...config.encryption,
         key: value,
-        keyStrength: validation.strength
-      } 
-    });
-  };
-  
+        keyStrength: validation.strength,
+      },
+    })
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const urlValidation = validateUrl(config.url);
-    const passwordValidation = validatePassword(config.password || '');
-    const keyValidation = config.encryption.enabled && config.encryption.key 
-      ? validateEncryptionKey(config.encryption.key)
-      : { isValid: true, strength: 'weak' as KeyStrength };
-    
-    const newErrors: Record<string, string> = {};
+    e.preventDefault()
+
+    const urlValidation = validateUrl(config.url)
+    const passwordValidation = validatePassword(config.password || '')
+    const keyValidation =
+      config.encryption.enabled && config.encryption.key
+        ? validateEncryptionKey(config.encryption.key)
+        : { isValid: true, strength: 'weak' as KeyStrength }
+
+    const newErrors: Record<string, string> = {}
     if (!urlValidation.isValid) {
-      newErrors.url = urlValidation.error || "";
+      newErrors.url = urlValidation.error || ''
     }
     if (!passwordValidation.isValid) {
-      newErrors.password = passwordValidation.error || "";
+      newErrors.password = passwordValidation.error || ''
     }
     if (config.encryption.enabled && !keyValidation.isValid) {
-      newErrors.encryptionKey = keyValidation.error || "";
+      newErrors.encryptionKey = keyValidation.error || ''
     }
-    
-    setValidationErrors(newErrors);
-    
+
+    setValidationErrors(newErrors)
+
     if (Object.keys(newErrors).length === 0) {
-      onSubmit(e);
+      onSubmit(e)
     }
-  };
-  
+  }
+
   return (
     <form onSubmit={handleSubmit}>
       <div className="form-group">
@@ -140,61 +147,63 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, status, onConfigChange,
           id="url"
           type="url"
           value={config.url}
-          onChange={(e) => handleUrlChange(e.target.value)}
+          onChange={e => handleUrlChange(e.target.value)}
           placeholder="https://dav.jianguoyun.com/dav/"
           required
         />
         {validationErrors.url && (
-          <div className="message-error" style={{ fontSize: "12px", marginTop: "4px" }}>
+          <div className="message-error" style={{ fontSize: '12px', marginTop: '4px' }}>
             {validationErrors.url}
           </div>
         )}
       </div>
-      
+
       <div className="form-group">
         <label htmlFor="username">用户名:</label>
         <input
           id="username"
           type="text"
           value={config.username}
-          onChange={(e) => onConfigChange({ ...config, username: e.target.value })}
+          onChange={e => onConfigChange({ ...config, username: e.target.value })}
           required
         />
       </div>
-      
+
       <div className="form-group">
         <label htmlFor="password">密码/应用令牌:</label>
         <input
           id="password"
           type="password"
-          value={config.password || ""}
-          onChange={(e) => handlePasswordChange(e.target.value)}
+          value={config.password || ''}
+          onChange={e => handlePasswordChange(e.target.value)}
           required
         />
         {validationErrors.password && (
-          <div className="message-error" style={{ fontSize: "12px", marginTop: "4px" }}>
+          <div className="message-error" style={{ fontSize: '12px', marginTop: '4px' }}>
             {validationErrors.password}
           </div>
         )}
       </div>
-      
+
       <div className="form-group">
         <label htmlFor="encryption-enabled">启用加密:</label>
         <input
           id="encryption-enabled"
           type="checkbox"
           checked={config.encryption.enabled}
-          onChange={(e) => onConfigChange({ 
-            ...config, 
-            encryption: { 
-              ...config.encryption, 
-              enabled: e.target.checked 
-            } 
-          })}
+          onChange={e =>
+            onConfigChange({
+              ...config,
+              encryption: {
+                ...config.encryption,
+                enabled: e.target.checked,
+              },
+            })
+          }
           className={getCheckboxClassName(checkboxStyle)}
         />
       </div>
-      
+
       {config.encryption.enabled && (
         <>
           <div className="form-group">
@@ -202,13 +211,15 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, status, onConfigChange,
             <select
               id="encryption-type"
               value={config.encryption.type}
-              onChange={(e) => onConfigChange({ 
-                ...config, 
-                encryption: { 
-                  ...config.encryption, 
-                  type: e.target.value as EncryptionType 
-                } 
-              })}
+              onChange={e =>
+                onConfigChange({
+                  ...config,
+                  encryption: {
+                    ...config.encryption,
+                    type: e.target.value as EncryptionType,
+                  },
+                })
+              }
             >
               <option value="aes-256-gcm">AES-256-GCM (推荐，带认证)</option>
               <option value="chacha20-poly1305">ChaCha20-Poly1305 (带认证，性能更好)</option>
@@ -216,60 +227,68 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ config, status, onConfigChange,
               <option value="aes-256-cbc">AES-256-CBC (传统块加密)</option>
             </select>
           </div>
-          
+
           <div className="form-group">
             <label htmlFor="encryption-key">加密密钥:</label>
             <input
               id="encryption-key"
               type="password"
-              value={config.encryption.key || ""}
-              onChange={(e) => handleKeyChange(e.target.value)}
+              value={config.encryption.key || ''}
+              onChange={e => handleKeyChange(e.target.value)}
               placeholder="请输入加密密钥（建议使用强密码）"
               required
             />
             {config.encryption.key && (
-              <div style={{ display: "flex", alignItems: "center", marginTop: "4px", gap: "8px" }}>
-                <span style={{ fontSize: "12px", color: "var(--text-light)" }}>密钥强度：</span>
-                <span style={{ 
-                  fontSize: "12px", 
-                  fontWeight: "bold",
-                  color: getStrengthColor(keyStrength)
-                }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginTop: '4px', gap: '8px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-light)' }}>密钥强度：</span>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    color: getStrengthColor(keyStrength),
+                  }}
+                >
                   {getStrengthText(keyStrength)}
                 </span>
-                <div style={{ 
-                  flex: 1, 
-                  height: "4px", 
-                  backgroundColor: "var(--border-color)",
-                  borderRadius: "2px",
-                  overflow: "hidden"
-                }}>
-                  <div style={{ 
-                    width: getStrengthWidth(keyStrength),
-                    height: "100%",
-                    backgroundColor: getStrengthColor(keyStrength),
-                    transition: "width 0.3s ease, background-color 0.3s ease"
-                  }} />
+                <div
+                  style={{
+                    flex: 1,
+                    height: '4px',
+                    backgroundColor: 'var(--border-color)',
+                    borderRadius: '2px',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: getStrengthWidth(keyStrength),
+                      height: '100%',
+                      backgroundColor: getStrengthColor(keyStrength),
+                      transition: 'width 0.3s ease, background-color 0.3s ease',
+                    }}
+                  />
                 </div>
               </div>
             )}
             {validationErrors.encryptionKey && (
-              <div className="message-error" style={{ fontSize: "12px", marginTop: "4px" }}>
+              <div className="message-error" style={{ fontSize: '12px', marginTop: '4px' }}>
                 {validationErrors.encryptionKey}
               </div>
             )}
           </div>
         </>
       )}
-      
-      <button type="submit" className="btn-primary">保存配置</button>
+
+      <button type="submit" className="btn-primary">
+        保存配置
+      </button>
       {status && (
-        <div className={`message ${status.includes("成功") ? "message-success" : "message-error"}`}>
+        <div className={`message ${status.includes('成功') ? 'message-success' : 'message-error'}`}>
           {status}
         </div>
       )}
     </form>
-  );
-};
+  )
+}
 
-export default ConfigForm;
+export default ConfigForm

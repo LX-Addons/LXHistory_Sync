@@ -1,372 +1,399 @@
-import React, { useState, useEffect } from "react";
-import { Storage } from "@plasmohq/storage";
-import { Virtuoso } from "react-virtuoso";
-import type { HistoryItem as HistoryItemType, ThemeType, GeneralConfig, CheckboxStyleType, IconSourceType, WebDAVConfig } from "~common/types";
-import { getLocalHistory } from "~common/history";
-import { syncToCloud, syncFromCloud } from "~common/webdav";
-import HistoryItemComponent from "~components/HistoryItem";
-import SyncStatus from "~components/SyncStatus";
-import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from "~store";
-import "./style.css";
+import React, { useState, useEffect } from 'react'
+import { Storage } from '@plasmohq/storage'
+import { Virtuoso } from 'react-virtuoso'
+import type {
+  HistoryItem as HistoryItemType,
+  ThemeType,
+  GeneralConfig,
+  CheckboxStyleType,
+  IconSourceType,
+  WebDAVConfig,
+} from '~common/types'
+import { getLocalHistory } from '~common/history'
+import { syncToCloud, syncFromCloud } from '~common/webdav'
+import HistoryItemComponent from '~components/HistoryItem'
+import SyncStatus from '~components/SyncStatus'
+import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from '~store'
+import './style.css'
 
 interface GroupedHistoryItem {
-  id: string;
-  type: "item" | "date" | "domain";
-  data: HistoryItemType | string | { domain: string; count: number };
-  isExpanded?: boolean;
+  id: string
+  type: 'item' | 'date' | 'domain'
+  data: HistoryItemType | string | { domain: string; count: number }
+  isExpanded?: boolean
 }
 
 interface DomainGroupItemProps {
-  domain: string;
-  count: number;
-  isExpanded: boolean;
-  iconSource: IconSourceType;
-  onToggle: () => void;
+  domain: string
+  count: number
+  isExpanded: boolean
+  iconSource: IconSourceType
+  onToggle: () => void
 }
 
 function DateGroupItem({ date }: { date: string }) {
-  return <div className="date-group">{date}</div>;
+  return <div className="date-group">{date}</div>
 }
 
-function DomainGroupItem({ domain, count, isExpanded, iconSource, onToggle }: DomainGroupItemProps) {
+function DomainGroupItem({
+  domain,
+  count,
+  isExpanded,
+  iconSource,
+  onToggle,
+}: DomainGroupItemProps) {
   const getDomainFaviconUrl = (domain: string): string => {
-    if (!domain) return "";
-    
+    if (!domain) return ''
+
     switch (iconSource) {
-      case "byteance":
-        return `https://f1.allesedv.com/${domain}/favicon.ico`;
-      case "google":
-        return `https://www.google.com/s2/favicons?domain=${domain}&sz=16`;
-      case "duckduckgo":
-        return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+      case 'byteance':
+        return `https://f1.allesedv.com/${domain}/favicon.ico`
+      case 'google':
+        return `https://www.google.com/s2/favicons?domain=${domain}&sz=16`
+      case 'duckduckgo':
+        return `https://icons.duckduckgo.com/ip3/${domain}.ico`
       default:
-        return "";
+        return ''
     }
-  };
+  }
 
   const getDomainIcon = (domain: string, iconSource: IconSourceType): React.ReactNode => {
-    if (iconSource === "letter") {
-      return <span>{domain.charAt(0).toUpperCase()}</span>;
+    if (iconSource === 'letter') {
+      return <span>{domain.charAt(0).toUpperCase()}</span>
     }
-    if (iconSource !== "none") {
-      return (
-        <img 
-          src={getDomainFaviconUrl(domain)} 
-          alt={domain} 
-          onError={handleImageError}
-        />
-      );
+    if (iconSource !== 'none') {
+      return <img src={getDomainFaviconUrl(domain)} alt={domain} onError={handleImageError} />
     }
-    return null;
-  };
+    return null
+  }
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const target = e.target as HTMLImageElement;
-    target.style.display = 'none';
-    const textIcon = document.createElement('span');
-    const firstChar = domain.charAt(0).toUpperCase();
-    textIcon.textContent = firstChar.match(/[a-zA-Z0-9]/) ? firstChar : "🌐";
-    target.parentElement?.appendChild(textIcon);
-  };
+    const target = e.target as HTMLImageElement
+    target.style.display = 'none'
+    const textIcon = document.createElement('span')
+    const firstChar = domain.charAt(0).toUpperCase()
+    textIcon.textContent = firstChar.match(/[a-zA-Z0-9]/) ? firstChar : '🌐'
+    target.parentElement?.appendChild(textIcon)
+  }
 
   return (
-    <button 
-      className={`domain-group ${isExpanded ? "expanded" : "collapsed"}`}
+    <button
+      className={`domain-group ${isExpanded ? 'expanded' : 'collapsed'}`}
       onClick={onToggle}
       type="button"
       aria-label={`${isExpanded ? '折叠' : '展开'} ${domain} (${count} 条)`}
       aria-expanded={isExpanded}
     >
       <div className="domain-header">
-        <div className="domain-icon">
-          {getDomainIcon(domain, iconSource)}
-        </div>
+        <div className="domain-icon">{getDomainIcon(domain, iconSource)}</div>
         <span className="domain-name">{domain}</span>
         <span className="domain-count">{count} 条</span>
-        <span className="domain-toggle">{isExpanded ? "▼" : "▶"}</span>
+        <span className="domain-toggle">{isExpanded ? '▼' : '▶'}</span>
       </div>
     </button>
-  );
+  )
 }
 
 const extractDomain = (url: string) => {
   try {
-    const urlObj = new URL(url);
-    return urlObj.hostname;
+    const urlObj = new URL(url)
+    return urlObj.hostname
   } catch {
-    return "未知域名";
+    return '未知域名'
   }
-};
+}
 
-const storage = new Storage();
+const storage = new Storage()
 
 const Popup: React.FC = () => {
-  const [allHistoryItems, setAllHistoryItems] = useState<GroupedHistoryItem[]>([]);
-  const [historyItems, setHistoryItems] = useState<GroupedHistoryItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [syncStatus, setSyncStatus] = useState<{ message: string; type: "info" | "success" | "error" } | null>(null);
-  const [hasWebDAVConfig, setHasWebDAVConfig] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [allHistoryItems, setAllHistoryItems] = useState<GroupedHistoryItem[]>([])
+  const [historyItems, setHistoryItems] = useState<GroupedHistoryItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [syncStatus, setSyncStatus] = useState<{
+    message: string
+    type: 'info' | 'success' | 'error'
+  } | null>(null)
+  const [hasWebDAVConfig, setHasWebDAVConfig] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const [themeConfig, setThemeConfig] = useState<{ theme: ThemeType }>({
-    theme: DEFAULT_THEME_CONFIG.theme as ThemeType
-  });
+    theme: DEFAULT_THEME_CONFIG.theme as ThemeType,
+  })
   const [generalConfig, setGeneralConfig] = useState<GeneralConfig>({
     ...DEFAULT_GENERAL_CONFIG,
     checkboxStyle: DEFAULT_GENERAL_CONFIG.checkboxStyle as CheckboxStyleType,
-    iconSource: DEFAULT_GENERAL_CONFIG.iconSource as IconSourceType
-  });
-  const [expandedDomains, setExpandedDomains] = useState<Set<string>>(new Set());
+    iconSource: DEFAULT_GENERAL_CONFIG.iconSource as IconSourceType,
+  })
+  const [expandedDomains, setExpandedDomains] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    loadHistory();
-    checkWebDAVConfig();
-    loadThemeConfig();
-    loadGeneralConfig();
-  }, []);
+    loadHistory()
+    checkWebDAVConfig()
+    loadThemeConfig()
+    loadGeneralConfig()
+  }, [])
 
   useEffect(() => {
-    loadHistory();
-  }, [generalConfig.collapseDomainHistory]);
+    loadHistory()
+  }, [generalConfig.collapseDomainHistory])
 
   const handleDomainClick = (domainId: string) => {
-    const newExpandedDomains = new Set(expandedDomains);
+    const newExpandedDomains = new Set(expandedDomains)
     if (newExpandedDomains.has(domainId)) {
-      newExpandedDomains.delete(domainId);
+      newExpandedDomains.delete(domainId)
     } else {
-      newExpandedDomains.add(domainId);
+      newExpandedDomains.add(domainId)
     }
-    setExpandedDomains(newExpandedDomains);
-  };
+    setExpandedDomains(newExpandedDomains)
+  }
 
   useEffect(() => {
-    applyTheme();
-  }, [themeConfig]);
+    applyTheme()
+  }, [themeConfig])
 
   const loadThemeConfig = async () => {
     try {
-      const savedThemeConfig = await storage.get<{ theme: ThemeType }>(STORAGE_KEYS.THEME_CONFIG);
+      const savedThemeConfig = await storage.get<{ theme: ThemeType }>(STORAGE_KEYS.THEME_CONFIG)
       if (savedThemeConfig) {
-        setThemeConfig(savedThemeConfig);
+        setThemeConfig(savedThemeConfig)
       }
     } catch (error) {
-      console.error("Failed to load theme config:", error);
+      console.error('Failed to load theme config:', error)
     }
-  };
+  }
 
   const loadGeneralConfig = async () => {
     try {
-      const savedGeneralConfig = await storage.get<GeneralConfig>(STORAGE_KEYS.GENERAL_CONFIG);
+      const savedGeneralConfig = await storage.get<GeneralConfig>(STORAGE_KEYS.GENERAL_CONFIG)
       if (savedGeneralConfig) {
-        setGeneralConfig(savedGeneralConfig);
+        setGeneralConfig(savedGeneralConfig)
       }
     } catch (error) {
-      console.error("Failed to load general config:", error);
+      console.error('Failed to load general config:', error)
     }
-  };
+  }
 
   const applyTheme = () => {
-    const root = document.documentElement;
-    const isDarkMode = themeConfig.theme === "dark" || 
-                      (themeConfig.theme === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    
+    const root = document.documentElement
+    const isDarkMode =
+      themeConfig.theme === 'dark' ||
+      (themeConfig.theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+
     if (isDarkMode) {
-      root.classList.add("dark-theme");
-      root.classList.remove("light-theme");
+      root.classList.add('dark-theme')
+      root.classList.remove('light-theme')
     } else {
-      root.classList.add("light-theme");
-      root.classList.remove("dark-theme");
+      root.classList.add('light-theme')
+      root.classList.remove('dark-theme')
     }
-  };
+  }
 
   useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setHistoryItems(allHistoryItems);
+    if (searchQuery.trim() === '') {
+      setHistoryItems(allHistoryItems)
     } else {
       const filtered = allHistoryItems.filter(item => {
-        if (item.type === "item") {
-          const historyItem = item.data as HistoryItemType;
+        if (item.type === 'item') {
+          const historyItem = item.data as HistoryItemType
           return (
-            (historyItem.title && historyItem.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+            (historyItem.title &&
+              historyItem.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
             (historyItem.url && historyItem.url.toLowerCase().includes(searchQuery.toLowerCase()))
-          );
-        } else if (item.type === "domain") {
-          const domainData = item.data as { domain: string; count: number };
-          return domainData.domain.toLowerCase().includes(searchQuery.toLowerCase());
+          )
+        } else if (item.type === 'domain') {
+          const domainData = item.data as { domain: string; count: number }
+          return domainData.domain.toLowerCase().includes(searchQuery.toLowerCase())
         }
-        return true;
-      });
-      setHistoryItems(filtered);
+        return true
+      })
+      setHistoryItems(filtered)
     }
-  }, [searchQuery, allHistoryItems]);
+  }, [searchQuery, allHistoryItems])
 
   const checkWebDAVConfig = async () => {
     try {
-      const config = await storage.get<WebDAVConfig>("webdav_config");
-      setHasWebDAVConfig(!!config?.url && !!config?.username);
+      const config = await storage.get<WebDAVConfig>('webdav_config')
+      setHasWebDAVConfig(!!config?.url && !!config?.username)
     } catch (error) {
-      console.error("Failed to check WebDAV config:", error);
-      setHasWebDAVConfig(false);
+      console.error('Failed to check WebDAV config:', error)
+      setHasWebDAVConfig(false)
     }
-  };
+  }
 
   const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
+    const date = new Date(timestamp)
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
     if (date.toDateString() === today.toDateString()) {
-      return "今天";
+      return '今天'
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return "昨天";
+      return '昨天'
     } else {
-      return date.toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+      return date.toLocaleDateString([], {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long',
+      })
     }
-  };
+  }
 
   const groupItemsByDomain = (items: HistoryItemType[]): GroupedHistoryItem[] => {
-    const grouped: GroupedHistoryItem[] = [];
-    const itemsByDomain: Record<string, HistoryItemType[]> = {};
-    
+    const grouped: GroupedHistoryItem[] = []
+    const itemsByDomain: Record<string, HistoryItemType[]> = {}
+
     items.forEach(item => {
-      const domain = extractDomain(item.url);
+      const domain = extractDomain(item.url)
       if (!itemsByDomain[domain]) {
-        itemsByDomain[domain] = [];
+        itemsByDomain[domain] = []
       }
-      itemsByDomain[domain].push(item);
-    });
-    
+      itemsByDomain[domain].push(item)
+    })
+
     Object.entries(itemsByDomain).forEach(([domain, domainItems], domainIndex) => {
       grouped.push({
         id: `domain-${domainIndex}`,
-        type: "domain",
+        type: 'domain',
         data: { domain, count: domainItems.length },
-        isExpanded: false
-      });
-      
+        isExpanded: false,
+      })
+
       domainItems.forEach(item => {
         grouped.push({
           id: item.id,
-          type: "item",
-          data: item
-        });
-      });
-    });
-    
-    return grouped;
-  };
+          type: 'item',
+          data: item,
+        })
+      })
+    })
+
+    return grouped
+  }
 
   const createDateGroup = (items: HistoryItemType[], dateIndex: number): GroupedHistoryItem => {
     return {
       id: `date-${dateIndex}`,
-      type: "date",
-      data: formatDate(items[0].lastVisitTime)
-    };
-  };
+      type: 'date',
+      data: formatDate(items[0].lastVisitTime),
+    }
+  }
 
   const groupHistoryByDate = (items: HistoryItemType[]): GroupedHistoryItem[] => {
-    const grouped: GroupedHistoryItem[] = [];
-    const sortedItems = [...items].sort((a, b) => b.lastVisitTime - a.lastVisitTime);
-    const itemsByDate: Record<string, HistoryItemType[]> = {};
-    
+    const grouped: GroupedHistoryItem[] = []
+    const sortedItems = [...items].sort((a, b) => b.lastVisitTime - a.lastVisitTime)
+    const itemsByDate: Record<string, HistoryItemType[]> = {}
+
     sortedItems.forEach(item => {
-      const itemDate = new Date(item.lastVisitTime).toDateString();
+      const itemDate = new Date(item.lastVisitTime).toDateString()
       if (!itemsByDate[itemDate]) {
-        itemsByDate[itemDate] = [];
+        itemsByDate[itemDate] = []
       }
-      itemsByDate[itemDate].push(item);
-    });
-    
-    Object.entries(itemsByDate).forEach(([date, dateItems], dateIndex) => {
-      grouped.push(createDateGroup(dateItems, dateIndex));
-      
+      itemsByDate[itemDate].push(item)
+    })
+
+    Object.entries(itemsByDate).forEach(([, dateItems], dateIndex) => {
+      grouped.push(createDateGroup(dateItems, dateIndex))
+
       if (generalConfig.collapseDomainHistory) {
-        grouped.push(...groupItemsByDomain(dateItems));
+        grouped.push(...groupItemsByDomain(dateItems))
       } else {
         dateItems.forEach(item => {
           grouped.push({
             id: item.id,
-            type: "item",
-            data: item
-          });
-        });
+            type: 'item',
+            data: item,
+          })
+        })
       }
-    });
-    
-    return grouped;
-  };
+    })
+
+    return grouped
+  }
 
   const shouldShowHistoryItem = (index: number, item: GroupedHistoryItem): boolean => {
-    if (!generalConfig.collapseDomainHistory) return true;
-    if (item.type !== "item") return true;
-    
-    let parentDomainId: string | null = null;
+    if (!generalConfig.collapseDomainHistory) return true
+    if (item.type !== 'item') return true
+
+    let parentDomainId: string | null = null
     for (let i = index - 1; i >= 0; i--) {
-      const prevItem = historyItems[i];
-      if (prevItem.type === "domain") {
-        parentDomainId = prevItem.id;
-        break;
-      } else if (prevItem.type === "date") {
-        break;
+      const prevItem = historyItems[i]
+      if (prevItem.type === 'domain') {
+        parentDomainId = prevItem.id
+        break
+      } else if (prevItem.type === 'date') {
+        break
       }
     }
-    
+
     if (parentDomainId) {
-      return expandedDomains.has(parentDomainId);
+      return expandedDomains.has(parentDomainId)
     }
-    
-    return true;
-  };
+
+    return true
+  }
 
   const loadHistory = async () => {
-    setIsLoading(true);
+    setIsLoading(true)
     try {
-      console.log("Loading history...");
-      const items = await getLocalHistory();
-      console.log(`Loaded ${items.length} history items`);
-      const groupedItems = groupHistoryByDate(items);
-      setAllHistoryItems(groupedItems);
-      setHistoryItems(groupedItems);
+      console.log('Loading history...')
+      const items = await getLocalHistory()
+      console.log(`Loaded ${items.length} history items`)
+      const groupedItems = groupHistoryByDate(items)
+      setAllHistoryItems(groupedItems)
+      setHistoryItems(groupedItems)
     } catch (error) {
-      console.error("Failed to load history:", error);
-      setSyncStatus({ message: `加载本地历史失败: ${error instanceof Error ? error.message : "未知错误"}`, type: "error" });
+      console.error('Failed to load history:', error)
+      setSyncStatus({
+        message: `加载本地历史失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        type: 'error',
+      })
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   const handleSyncToCloud = async () => {
-    setSyncStatus({ message: "正在同步到云端...", type: "info" });
+    setSyncStatus({ message: '正在同步到云端...', type: 'info' })
     try {
       const rawHistoryItems = historyItems
-        .filter(item => item.type === "item")
-        .map(item => item.data as HistoryItemType);
-      
-      const result = await syncToCloud(rawHistoryItems);
+        .filter(item => item.type === 'item')
+        .map(item => item.data as HistoryItemType)
+
+      const result = await syncToCloud(rawHistoryItems)
       if (result.success) {
-        setSyncStatus({ message: result.message || "同步到云端成功！已合并数据。", type: "success" });
+        setSyncStatus({
+          message: result.message || '同步到云端成功！已合并数据。',
+          type: 'success',
+        })
       } else {
-        setSyncStatus({ message: result.error || "同步失败", type: "error" });
+        setSyncStatus({ message: result.error || '同步失败', type: 'error' })
       }
     } catch (error) {
-      setSyncStatus({ message: `同步失败: ${error instanceof Error ? error.message : "未知错误"}`, type: "error" });
-      console.error("Failed to sync to cloud:", error);
+      setSyncStatus({
+        message: `同步失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        type: 'error',
+      })
+      console.error('Failed to sync to cloud:', error)
     }
-  };
+  }
 
   const handleSyncFromCloud = async () => {
-    setSyncStatus({ message: "正在从云端同步...", type: "info" });
+    setSyncStatus({ message: '正在从云端同步...', type: 'info' })
     try {
-      const remoteItems = await syncFromCloud();
-      const groupedItems = groupHistoryByDate(remoteItems);
-      setAllHistoryItems(groupedItems);
-      setHistoryItems(groupedItems);
-      setSyncStatus({ message: `从云端同步成功！获取到 ${remoteItems.length} 条记录。`, type: "success" });
+      const remoteItems = await syncFromCloud()
+      const groupedItems = groupHistoryByDate(remoteItems)
+      setAllHistoryItems(groupedItems)
+      setHistoryItems(groupedItems)
+      setSyncStatus({
+        message: `从云端同步成功！获取到 ${remoteItems.length} 条记录。`,
+        type: 'success',
+      })
     } catch (error: any) {
-      setSyncStatus({ message: error.message || "同步失败", type: "error" });
-      console.error("Failed to sync from cloud:", error);
+      setSyncStatus({ message: error.message || '同步失败', type: 'error' })
+      console.error('Failed to sync from cloud:', error)
     }
-  };
+  }
 
   return (
     <div className="container">
@@ -374,24 +401,30 @@ const Popup: React.FC = () => {
         <div className="title-bar">
           <h1>历史记录</h1>
           <div className="action-buttons">
-            <button 
-              className="action-button" 
-              title="设置" 
+            <button
+              className="action-button"
+              title="设置"
               onClick={() => chrome.runtime.openOptionsPage()}
-            >⚙️</button>
+            >
+              ⚙️
+            </button>
           </div>
         </div>
-        
+
         {hasWebDAVConfig && (
           <div className="sync-buttons-container">
             <div className="button-group">
-              <button className="btn-primary" onClick={handleSyncToCloud}>同步到云端</button>
-              <button className="btn-secondary" onClick={handleSyncFromCloud}>从云端同步</button>
+              <button className="btn-primary" onClick={handleSyncToCloud}>
+                同步到云端
+              </button>
+              <button className="btn-secondary" onClick={handleSyncFromCloud}>
+                从云端同步
+              </button>
             </div>
             <SyncStatus status={syncStatus} />
           </div>
         )}
-        
+
         {generalConfig.searchEnabled && (
           <div className="search-container">
             <input
@@ -399,11 +432,11 @@ const Popup: React.FC = () => {
               className="search-box"
               placeholder="搜索历史记录..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
         )}
-        
+
         <div className="history-list-container">
           {isLoading ? (
             <div className="loading">加载历史记录中...</div>
@@ -416,10 +449,10 @@ const Popup: React.FC = () => {
             <Virtuoso
               data={historyItems}
               itemContent={(index, item) => {
-                if (item.type === "date") {
-                  return <DateGroupItem date={JSON.stringify(item.data)} />;
-                } else if (item.type === "domain") {
-                  const domainData = item.data as { domain: string; count: number };
+                if (item.type === 'date') {
+                  return <DateGroupItem date={JSON.stringify(item.data)} />
+                } else if (item.type === 'domain') {
+                  const domainData = item.data as { domain: string; count: number }
                   return (
                     <DomainGroupItem
                       domain={domainData.domain}
@@ -428,18 +461,18 @@ const Popup: React.FC = () => {
                       iconSource={generalConfig.iconSource}
                       onToggle={() => handleDomainClick(item.id)}
                     />
-                  );
+                  )
                 } else {
                   if (!shouldShowHistoryItem(index, item)) {
-                    return null;
+                    return null
                   }
                   return (
-                    <HistoryItemComponent 
-                      item={item.data as HistoryItemType} 
-                      showUrls={generalConfig.showUrls} 
-                      iconSource={generalConfig.iconSource} 
+                    <HistoryItemComponent
+                      item={item.data as HistoryItemType}
+                      showUrls={generalConfig.showUrls}
+                      iconSource={generalConfig.iconSource}
                     />
-                  );
+                  )
                 }
               }}
             />
@@ -447,7 +480,7 @@ const Popup: React.FC = () => {
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default Popup;
+export default Popup

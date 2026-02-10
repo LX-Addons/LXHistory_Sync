@@ -1,0 +1,11 @@
+node_modules
+build
+.plasmo
+.github
+*.d.ts
+tsconfig.tsbuildinfo
+package-lock.json
+*.log
+.DS_Store
+.vscode
+.idea
