@@ -337,17 +337,11 @@ jobs:
             npm install
           fi
 
-      - name: Install Playwright browsers
-        run: npx playwright install chromium
-
-      - name: Install xvfb
-        run: sudo apt-get update && sudo apt-get install -y xvfb
-
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: extension-build
-          path: build/chrome-mv3-prod/
+          path: build/
 
       - name: Verify downloaded build
         run: |
@@ -359,7 +353,7 @@ jobs:
           cat build/chrome-mv3-prod/manifest.json || echo "manifest.json not found"
 
       - name: Run E2E tests
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" npm run test:e2e
+        run: npm run test:e2e
 
       - name: Upload Playwright report
         if: always()

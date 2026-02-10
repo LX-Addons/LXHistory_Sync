@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom'
 import { vi } from 'vitest'
+import { randomBytes } from 'crypto'
 
 const mockChromeStorage = {
   local: {
@@ -53,8 +54,9 @@ global.chrome = {
 Object.defineProperty(global, 'crypto', {
   value: {
     getRandomValues: (arr: Uint8Array) => {
+      const bytes = randomBytes(arr.length)
       for (let i = 0; i < arr.length; i++) {
-        arr[i] = Math.floor(Math.random() * 256)
+        arr[i] = bytes[i]
       }
       return arr
     },
