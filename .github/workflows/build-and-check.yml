@@ -79,7 +79,12 @@ jobs:
           echo "zip_file=${PROJECT_NAME}-${VERSION}.zip" >> $GITHUB_OUTPUT
 
       - name: Build extension
-        run: npm run build
+        run: npm run build:ci
+        env:
+          CI: true
+          NODE_ENV: production
+          FORCE_COLOR: 0
+          TERM: dumb
 
       - name: Verify build success
         run: |
