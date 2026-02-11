@@ -13,6 +13,7 @@ import { getLocalHistory } from '~common/history'
 import { syncToCloud, syncFromCloud } from '~common/webdav'
 import HistoryItemComponent from '~components/HistoryItem'
 import SyncStatus from '~components/SyncStatus'
+import SkeletonLoader from '~components/SkeletonLoader'
 import { ErrorBoundary } from '~components/ErrorBoundary'
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from '~store'
 import { extractDomain, applyTheme, getDomainFaviconUrl, getLetterIcon } from '~common/utils'
@@ -98,11 +99,13 @@ const Popup: React.FC = () => {
   const [allHistoryItems, setAllHistoryItems] = useState<GroupedHistoryItem[]>([])
   const [historyItems, setHistoryItems] = useState<GroupedHistoryItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isSyncing, setIsSyncing] = useState(false)
   const [syncStatus, setSyncStatus] = useState<{
     message: string
     type: 'info' | 'success' | 'error'
   } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [themeConfig] = useStorage<{ theme: ThemeType }>(STORAGE_KEYS.THEME_CONFIG, {
     theme: DEFAULT_THEME_CONFIG.theme as ThemeType,
   })
@@ -137,7 +140,7 @@ const Popup: React.FC = () => {
   }, [themeConfig])
 
   useEffect(() => {
-    if (searchQuery.trim() === '') {
+    if (debouncedSearchQuery.trim() === '') {
       setHistoryItems(allHistoryItems)
     } else {
       const filtered = allHistoryItems.filter(item => {
@@ -145,18 +148,27 @@ const Popup: React.FC = () => {
           const historyItem = item.data as HistoryItemType
           return (
             (historyItem.title &&
-              historyItem.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
-            (historyItem.url && historyItem.url.toLowerCase().includes(searchQuery.toLowerCase()))
+              historyItem.title.toLowerCase().includes(debouncedSearchQuery.toLowerCase())) ||
+            (historyItem.url &&
+              historyItem.url.toLowerCase().includes(debouncedSearchQuery.toLowerCase()))
           )
         } else if (item.type === 'domain') {
           const domainData = item.data as { domain: string; count: number }
-          return domainData.domain.toLowerCase().includes(searchQuery.toLowerCase())
+          return domainData.domain.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
         }
         return true
       })
       setHistoryItems(filtered)
     }
-  }, [searchQuery, allHistoryItems])
+  }, [debouncedSearchQuery, allHistoryItems])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   const hasWebDAVConfig = !!webdavConfig?.url && !!webdavConfig?.username
 
@@ -295,6 +307,8 @@ const Popup: React.FC = () => {
   }
 
   const handleSyncToCloud = async () => {
+    if (isSyncing) return
+    setIsSyncing(true)
     setSyncStatus({ message: '正在同步到云端...', type: 'info' })
     try {
       const rawHistoryItems = historyItems
@@ -308,7 +322,10 @@ const Popup: React.FC = () => {
           type: 'success',
         })
       } else {
-        setSyncStatus({ message: result.error || '同步失败', type: 'error' })
+        setSyncStatus({
+          message: result.error || '同步失败',
+          type: 'error',
+        })
       }
     } catch (error) {
       setSyncStatus({
@@ -316,10 +333,14 @@ const Popup: React.FC = () => {
         type: 'error',
       })
       Logger.error('Failed to sync to cloud', error)
+    } finally {
+      setIsSyncing(false)
     }
   }
 
   const handleSyncFromCloud = async () => {
+    if (isSyncing) return
+    setIsSyncing(true)
     setSyncStatus({ message: '正在从云端同步...', type: 'info' })
     try {
       const remoteItems = await syncFromCloud()
@@ -334,6 +355,8 @@ const Popup: React.FC = () => {
       const errorMessage = error instanceof Error ? error.message : '同步失败'
       setSyncStatus({ message: errorMessage, type: 'error' })
       Logger.error('Failed to sync from cloud', error)
+    } finally {
+      setIsSyncing(false)
     }
   }
 
@@ -382,7 +405,7 @@ const Popup: React.FC = () => {
 
           <div className="history-list-container">
             {isLoading ? (
-              <div className="loading">加载历史记录中...</div>
+              <SkeletonLoader count={5} />
             ) : historyItems.length === 0 ? (
               <div className="no-history">
                 <p>暂无浏览记录</p>

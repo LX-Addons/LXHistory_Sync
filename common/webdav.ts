@@ -40,74 +40,49 @@ async function clearSessionConfig(): Promise<void> {
 
 interface ErrorRecovery {
   message: string
-  actions: string[]
+  actions: string
 }
 
 function getErrorRecovery(error: Error): ErrorRecovery {
   const errorMessage = error.message.toLowerCase()
-
   if (errorMessage.includes('认证失败') || errorMessage.includes('authentication')) {
     return {
       message: '认证失败',
-      actions: [
-        '检查WebDAV用户名和密码是否正确',
-        '确认WebDAV服务器是否正常运行',
-        '尝试重新登录WebDAV服务',
-      ],
+      actions:
+        '检查WebDAV用户名和密码是否正确\n确认WebDAV服务器是否正常运行\n尝试重新登录WebDAV服务',
     }
   }
-
   if (errorMessage.includes('网络') || errorMessage.includes('connection')) {
     return {
       message: '网络连接失败',
-      actions: [
-        '检查网络连接是否正常',
-        '确认WebDAV服务器地址是否正确',
-        '尝试使用其他网络连接',
-        '检查防火墙设置',
-      ],
+      actions:
+        '检查网络连接是否正常\n确认WebDAV服务器地址是否正确\n尝试使用其他网络连接\n检查防火墙设置',
     }
   }
-
   if (errorMessage.includes('解密') || errorMessage.includes('decrypt')) {
     return {
       message: '解密失败',
-      actions: [
-        '检查主密码是否正确',
-        '确认加密密钥是否正确',
-        '尝试重新设置主密码',
-        '清除加密数据并重新配置',
-      ],
+      actions:
+        '检查主密码是否正确\n确认加密密钥是否正确\n尝试重新设置主密码\n清除加密数据并重新配置',
     }
   }
-
   if (errorMessage.includes('配置') || errorMessage.includes('config')) {
     return {
       message: '配置错误',
-      actions: [
-        '检查WebDAV配置是否完整',
-        '确认URL格式是否正确（必须使用HTTPS）',
-        '验证用户名和密码是否已填写',
-        '重新保存配置',
-      ],
+      actions:
+        '检查WebDAV配置是否完整\n确认URL格式是否正确（必须使用HTTPS）\n验证用户名和密码是否已填写\n重新保存配置',
     }
   }
-
   if (errorMessage.includes('格式') || errorMessage.includes('format')) {
     return {
       message: '数据格式错误',
-      actions: [
-        '确认云端数据是否完整',
-        '尝试从云端重新同步',
-        '清除本地历史记录并重新同步',
-        '联系WebDAV服务提供商',
-      ],
+      actions:
+        '确认云端数据是否完整\n尝试从云端重新同步\n清除本地历史记录并重新同步\n联系WebDAV服务提供商',
     }
   }
-
   return {
     message: '未知错误',
-    actions: ['刷新页面重试', '检查浏览器控制台获取详细信息', '清除浏览器缓存', '重启浏览器'],
+    actions: '刷新页面重试\n检查浏览器控制台获取详细信息\n清除浏览器缓存\n重启浏览器',
   }
 }
 
@@ -604,12 +579,12 @@ function createValidationResult(errorMessage: string): CloudSyncResult {
   return {
     success: false,
     error: recovery.message,
-    message: recovery.message,
+    message: errorMessage || '验证失败',
     recovery: recovery.actions,
   }
 }
 
-function validateAllConfig(config: WebDAVConfig): CloudSyncResult | null {
+async function validateAllConfig(config: WebDAVConfig): Promise<CloudSyncResult | null> {
   if (!config || !validateConfig(config)) {
     return createValidationResult('配置未设置')
   }
@@ -651,8 +626,7 @@ async function prepareUploadContent(
 }
 
 function handleHttpError(response: Response): CloudSyncResult {
-  let errorMessage = '同步失败'
-
+  let errorMessage: string | undefined = '同步失败'
   switch (response.status) {
     case 401:
       errorMessage = '认证失败，请检查用户名和密码'
@@ -669,12 +643,66 @@ function handleHttpError(response: Response): CloudSyncResult {
     case 0:
       errorMessage = '无法连接到 WebDAV 服务器，请检查网络连接'
       break
+    default:
+      errorMessage = '同步失败'
+      break
   }
-
-  return createValidationResult(errorMessage)
+  const recovery = getErrorRecovery(new Error(errorMessage))
+  return {
+    success: false,
+    error: errorMessage,
+    message: errorMessage || '同步失败',
+    recovery: recovery.actions,
+  }
 }
 
-async function parseResponseData(response: Response, config: WebDAVConfig): Promise<HistoryItem[]> {
+export async function testWebDAVConnection(config: WebDAVConfig): Promise<CloudSyncResult> {
+  if (!config || !config.url || !config.username || !config.password) {
+    return {
+      success: false,
+      error: '请先填写完整的 WebDAV 配置',
+      message: '配置不完整',
+      recovery: '请填写 WebDAV 服务器地址、用户名和密码',
+    }
+  }
+
+  try {
+    const authString = btoa(`${config.username}:${config.password}`)
+    const testUrl = new URL(config.url)
+    const testPath = testUrl.pathname.replace(/\/$/, '') + '/'
+
+    const response = await fetch(testPath, {
+      method: 'PROPFIND',
+      headers: {
+        Authorization: `Basic ${authString}`,
+        Depth: '0',
+      },
+    })
+
+    if (response.ok || response.status === 207) {
+      return {
+        success: true,
+        message: 'WebDAV 连接测试成功',
+      }
+    }
+
+    const errorResult = handleHttpError(response)
+    return errorResult
+  } catch (error) {
+    Logger.error('WebDAV connection test failed', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '连接测试失败',
+      message: '连接测试失败',
+      recovery: '请检查网络连接、服务器地址和凭据是否正确',
+    }
+  }
+}
+
+export async function parseResponseData(
+  response: Response,
+  config: WebDAVConfig
+): Promise<HistoryItem[]> {
   if (config.encryption?.enabled && config.encryption?.key) {
     const blob = await response.blob()
     const arrayBuffer = await blob.arrayBuffer()
@@ -686,21 +714,24 @@ async function parseResponseData(response: Response, config: WebDAVConfig): Prom
   return (await response.json()) as HistoryItem[]
 }
 
-function throwConfigError(errorMessage: string): never {
+function throwConfigError(errorMessage: string): CloudSyncResult {
   const recovery = getErrorRecovery(new Error(errorMessage))
-  const error = new Error(recovery.message) as Error & { recovery: string[] }
+  const error = new Error(recovery.message) as Error & { recovery: string }
   error.recovery = recovery.actions
   throw error
 }
 
-async function loadConfigForSync(masterKey: CryptoKey): Promise<WebDAVConfig | null> {
+async function loadConfigForSync(masterKey: CryptoKey | null): Promise<WebDAVConfig | null> {
+  if (!masterKey) {
+    return null
+  }
   try {
     const config = await loadAndDecryptConfig(masterKey)
     if (!config) {
       return null
     }
 
-    const validationResult = validateAllConfig(config)
+    const validationResult = await validateAllConfig(config)
     if (validationResult) {
       return null
     }
@@ -723,10 +754,12 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
       }
     }
 
-    const config = await loadConfigForSync(masterKey)
-    if (!config) {
+    const configResult = await loadConfigForSync(masterKey)
+    if (!configResult) {
       return createValidationResult('配置未设置或无效')
     }
+
+    const config: WebDAVConfig = configResult
 
     let remoteHistory: HistoryItem[] = []
     try {
@@ -757,6 +790,7 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
       message: '同步到云端成功！已合并数据。',
     }
   } catch (error) {
+    Logger.error('Sync to cloud failed', error)
     const recovery = getErrorRecovery(error as Error)
     return {
       success: false,
@@ -776,10 +810,12 @@ export async function syncFromCloud(): Promise<HistoryItem[]> {
       throwConfigError('请先设置主密码以保护您的数据')
     }
 
-    const config = await loadConfigForSync(masterKey)
-    if (!config) {
+    const configResult = await loadConfigForSync(masterKey)
+    if (!configResult) {
       throwConfigError('配置未设置或无效')
     }
+
+    const config: WebDAVConfig = configResult!
 
     const response = await fetchWithRetry(`${config.url.replace(/\/$/, '')}/${WEBDAV_FILENAME}`, {
       method: 'GET',

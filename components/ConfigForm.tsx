@@ -61,38 +61,38 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   }
 
   const handleUrlChange = (value: string) => {
+    onConfigChange({ ...config, url: value })
     const validation = validateUrl(value)
     setValidationErrors(prev => ({
       ...prev,
       url: validation.isValid ? '' : validation.error || '',
     }))
-    onConfigChange({ ...config, url: value })
   }
 
   const handlePasswordChange = (value: string) => {
+    onConfigChange({ ...config, password: value })
     const validation = validatePassword(value)
     setValidationErrors(prev => ({
       ...prev,
       password: validation.isValid ? '' : validation.error || '',
     }))
-    onConfigChange({ ...config, password: value })
   }
 
   const handleKeyChange = (value: string) => {
+    onConfigChange({
+      ...config,
+      encryption: {
+        ...config.encryption,
+        key: value,
+        keyStrength: validateEncryptionKey(value).strength,
+      },
+    })
     const validation = validateEncryptionKey(value)
     setKeyStrength(validation.strength)
     setValidationErrors(prev => ({
       ...prev,
       encryptionKey: validation.isValid ? '' : validation.error || '',
     }))
-    onConfigChange({
-      ...config,
-      encryption: {
-        ...config.encryption,
-        key: value,
-        keyStrength: validation.strength,
-      },
-    })
   }
 
   const handleSubmit = (e: React.FormEvent) => {
