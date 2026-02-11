@@ -18,6 +18,8 @@ export default function SecurityTab() {
     handleHideForm,
   } = useMasterPassword()
   const [localStatus, setLocalStatus] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const handleSubmitWithStatus = async (e: React.FormEvent) => {
     await handleSubmit(e)
@@ -143,26 +145,64 @@ export default function SecurityTab() {
 
           <div className="form-group">
             <label htmlFor="master-password">主密码:</label>
-            <input
-              id="master-password"
-              type="password"
-              value={masterPassword}
-              onChange={e => setMasterPassword(e.target.value)}
-              placeholder="请输入主密码（至少8个字符）"
-              required
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                id="master-password"
+                type={showPassword ? 'text' : 'password'}
+                value={masterPassword}
+                onChange={e => setMasterPassword(e.target.value)}
+                placeholder="请输入主密码（至少8个字符）"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-light)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                }}
+              >
+                {showPassword ? '🙈' : '👁'}
+              </button>
+            </div>
           </div>
 
           <div className="form-group">
             <label htmlFor="master-password-confirm">确认主密码:</label>
-            <input
-              id="master-password-confirm"
-              type="password"
-              value={masterPasswordConfirm}
-              onChange={e => setMasterPasswordConfirm(e.target.value)}
-              placeholder="请再次输入主密码"
-              required
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                id="master-password-confirm"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={masterPasswordConfirm}
+                onChange={e => setMasterPasswordConfirm(e.target.value)}
+                placeholder="请再次输入主密码"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-light)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                }}
+              >
+                {showConfirmPassword ? '🙈' : '👁'}
+              </button>
+            </div>
           </div>
 
           {masterPasswordError && (

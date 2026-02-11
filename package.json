@@ -1,7 +1,7 @@
 {
   "name": "LXHistory_Sync",
   "displayName": "LXHistory_Sync",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "LXHistory_Sync - WebDAV 历史记录同步扩展",
   "packageManager": "npm@10.0.0",
   "scripts": {
@@ -26,7 +26,8 @@
     "plasmo": "^0.90.5",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "react-virtuoso": "^4.5.1"
+    "react-virtuoso": "^4.5.1",
+    "use-debounce": "^10.1.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

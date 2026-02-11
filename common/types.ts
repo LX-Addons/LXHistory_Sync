@@ -44,7 +44,7 @@ export interface CloudSyncResult {
   items?: HistoryItem[]
   error?: string
   message?: string
-  recovery?: string[]
+  recovery?: string
 }
 
 export type ThemeType = 'auto' | 'light' | 'dark'

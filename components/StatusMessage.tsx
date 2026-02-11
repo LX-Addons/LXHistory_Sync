@@ -1,7 +1,12 @@
 import { useEffect } from 'react'
 
-interface StatusMessageProps {
+interface StatusMessageData {
   message: string
+  type?: 'info' | 'success' | 'error'
+}
+
+interface StatusMessageProps {
+  message: string | StatusMessageData | null
   type?: 'success' | 'error'
   duration?: number
   onClear?: () => void
@@ -29,8 +34,11 @@ export default function StatusMessage({
 
   if (!message) return null
 
-  const messageClass =
-    type === 'error' || message.includes('失败') ? 'message-error' : 'message-success'
+  const messageText = typeof message === 'string' ? message : message.message
+  const messageType = typeof message === 'string' ? type : message.type
 
-  return <div className={`message ${messageClass}`}>{message}</div>
+  const messageClass =
+    messageType === 'error' || messageText.includes('失败') ? 'message-error' : 'message-success'
+
+  return <div className={`message ${messageClass}`}>{messageText}</div>
 }
