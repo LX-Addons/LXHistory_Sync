@@ -6,7 +6,7 @@ import { Logger } from './logger'
 import { APP_NAME } from './utils'
 
 const storage = new Storage()
-const sessionStorage = new Storage({ area: "session" })
+const sessionStorage = new Storage({ area: 'session' })
 const PBKDF2_ITERATIONS = 300000
 const SALT_LENGTH = 16
 
@@ -307,7 +307,10 @@ function getIVLength(algorithm: string): number {
   }
 }
 
-function createAlgorithm(type: string, iv: Uint8Array): AlgorithmIdentifier | AesCtrParams | AesGcmParams {
+function createAlgorithm(
+  type: string,
+  iv: Uint8Array
+): AlgorithmIdentifier | AesCtrParams | AesGcmParams {
   const encoder = new TextEncoder()
 
   switch (type) {

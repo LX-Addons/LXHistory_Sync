@@ -90,10 +90,10 @@ self.addEventListener('activate', () => {
 })
 
 storage.watch({
-  callback: (changes) => {
+  callback: changes => {
     if (changes.newValue !== undefined || changes.oldValue !== undefined) {
       Logger.info('Settings changed, restarting sync timer')
       startSyncTimer()
     }
-  }
+  },
 })
