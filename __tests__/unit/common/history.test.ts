@@ -79,13 +79,13 @@ describe('getLocalHistory', () => {
     const mockItems = [
       { id: '1', url: 'https://example.com', title: 'Example', lastVisitTime: 1000, visitCount: 1 },
     ]
-    ;(chrome.history.search as unknown as ReturnType<typeof vi.fn>) = vi.fn((query, callback) => {
+    const mockSearch = vi.fn((_query, callback) => {
       callback(mockItems)
-    })
+    }) as unknown as typeof chrome.history.search
+    chrome.history.search = mockSearch
 
     const result = await getLocalHistory()
-
-    expect(chrome.history.search).toHaveBeenCalledWith(
+    expect(mockSearch).toHaveBeenCalledWith(
       {
         text: '',
         startTime: 0,
@@ -100,17 +100,16 @@ describe('getLocalHistory', () => {
   it('当 chrome.history 不可用时应该抛出错误', async () => {
     const originalHistory = chrome.history
     chrome.history = undefined as unknown as typeof chrome.history
-
     await expect(getLocalHistory()).rejects.toThrow('History API is not available')
-
     chrome.history = originalHistory
   })
 
   it('应该处理 chrome.runtime.lastError', async () => {
-    ;(chrome.history.search as unknown as ReturnType<typeof vi.fn>) = vi.fn((query, callback) => {
+    const mockSearch = vi.fn((_query, callback) => {
       chrome.runtime.lastError = { message: 'Test error' }
       callback([])
-    })
+    }) as unknown as typeof chrome.history.search
+    chrome.history.search = mockSearch
 
     await expect(getLocalHistory()).rejects.toThrow('Test error')
     chrome.runtime.lastError = undefined
@@ -120,12 +119,12 @@ describe('getLocalHistory', () => {
     const mockItems = [
       { id: '1', url: undefined, title: 'No URL', lastVisitTime: 1000, visitCount: 1 },
     ]
-    ;(chrome.history.search as unknown as ReturnType<typeof vi.fn>) = vi.fn((query, callback) => {
+    const mockSearch = vi.fn((_query, callback) => {
       callback(mockItems)
-    })
+    }) as unknown as typeof chrome.history.search
+    chrome.history.search = mockSearch
 
     const result = await getLocalHistory()
-
     expect(result[0].url).toBe('')
   })
 })

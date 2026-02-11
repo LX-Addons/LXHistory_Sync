@@ -6,29 +6,36 @@ import { Logger } from './logger'
 import { APP_NAME } from './utils'
 
 const storage = new Storage()
+const sessionStorage = new Storage({ area: "session" })
 const PBKDF2_ITERATIONS = 300000
 const SALT_LENGTH = 16
 
 async function getSessionConfig(): Promise<WebDAVConfig | null> {
   try {
-    const sessionConfig = await chrome.storage.session.get('webdav_config')
-    if (sessionConfig?.webdav_config) {
-      return sessionConfig.webdav_config as WebDAVConfig
+    const sessionConfig = await sessionStorage.get<WebDAVConfig>('webdav_config')
+    if (sessionConfig) {
+      return sessionConfig
     }
-  } catch {}
+  } catch (error) {
+    Logger.error('Failed to get session config', error)
+  }
   return null
 }
 
 async function setSessionConfig(config: WebDAVConfig): Promise<void> {
   try {
-    await chrome.storage.session.set({ webdav_config: config })
-  } catch {}
+    await sessionStorage.set('webdav_config', config)
+  } catch (error) {
+    Logger.error('Failed to set session config', error)
+  }
 }
 
 async function clearSessionConfig(): Promise<void> {
   try {
-    await chrome.storage.session.remove('webdav_config')
-  } catch {}
+    await sessionStorage.remove('webdav_config')
+  } catch (error) {
+    Logger.error('Failed to clear session config', error)
+  }
 }
 
 interface ErrorRecovery {
@@ -192,7 +199,7 @@ async function getMasterKey(): Promise<CryptoKey | null> {
     return null
   }
 
-  const inputPassword = await storage.get<string>('master_password_input')
+  const inputPassword = await sessionStorage.get<string>('master_password_input')
   if (!inputPassword) {
     return null
   }
@@ -216,12 +223,15 @@ async function setMasterPassword(password: string): Promise<void> {
   const hash = await hashPassword(password)
   const salt = generateSalt()
   await storage.set('master_password_data', { hash, salt })
-  await storage.set('master_password_input', password)
+}
+
+async function setSessionMasterPassword(password: string): Promise<void> {
+  await sessionStorage.set('master_password_input', password)
 }
 
 async function clearMasterPassword(): Promise<void> {
   await storage.remove('master_password_data')
-  await storage.remove('master_password_input')
+  await sessionStorage.remove('master_password_input')
 }
 
 function calculateKeyStrength(key: string): KeyStrength {
@@ -239,13 +249,6 @@ function calculateKeyStrength(key: string): KeyStrength {
   if (strength >= 3) return 'medium'
   return 'weak'
 }
-
-type EncryptionAlgorithm =
-  | AlgorithmIdentifier
-  | RsaOaepParams
-  | AesCtrParams
-  | AesCbcParams
-  | AesGcmParams
 
 function getAlgorithmParams(algorithm: string): { name: string; length: number } {
   switch (algorithm) {
@@ -304,7 +307,7 @@ function getIVLength(algorithm: string): number {
   }
 }
 
-function createAlgorithm(type: string, iv: Uint8Array): EncryptionAlgorithm {
+function createAlgorithm(type: string, iv: Uint8Array): AlgorithmIdentifier | AesCtrParams | AesGcmParams {
   const encoder = new TextEncoder()
 
   switch (type) {
@@ -336,10 +339,6 @@ function createAlgorithm(type: string, iv: Uint8Array): EncryptionAlgorithm {
   }
 }
 
-function createEncryptionAlgorithm(type: string, iv: Uint8Array): EncryptionAlgorithm {
-  return createAlgorithm(type, iv)
-}
-
 async function encrypt(
   data: HistoryItem[],
   key: string,
@@ -362,7 +361,7 @@ async function encrypt(
     const encryptionKey = await deriveEncryptionKey(keyMaterial, actualSalt, type)
     const ivLength = getIVLength(type)
     const iv = crypto.getRandomValues(new Uint8Array(ivLength))
-    const algorithm = createEncryptionAlgorithm(type, iv)
+    const algorithm = createAlgorithm(type, iv)
 
     const encrypted = await crypto.subtle.encrypt(
       algorithm,
@@ -405,10 +404,6 @@ async function deriveDecryptionKey(
   algorithm: string
 ): Promise<CryptoKey> {
   return deriveKey(keyMaterial, salt, algorithm, 'decrypt')
-}
-
-function createDecryptionAlgorithm(type: string, iv: Uint8Array): EncryptionAlgorithm {
-  return createAlgorithm(type, iv)
 }
 
 async function decrypt(encryptedData: string, key: string, type: string): Promise<HistoryItem[]> {
@@ -460,7 +455,7 @@ async function decrypt(encryptedData: string, key: string, type: string): Promis
       saltLength + ivLength,
       saltLength + ivLength + encryptedDataLength
     )
-    const algorithm = createDecryptionAlgorithm(type, iv)
+    const algorithm = createAlgorithm(type, iv)
 
     const decrypted = await crypto.subtle.decrypt(algorithm, decryptionKey, encrypted)
 
@@ -499,7 +494,8 @@ function validateUrl(url: string): { isValid: boolean; error?: string } {
     }
 
     return { isValid: true }
-  } catch {
+  } catch (error) {
+    Logger.error('Failed to validate URL', error)
     return { isValid: false, error: '无效的 URL 格式' }
   }
 }
@@ -707,7 +703,8 @@ async function loadConfigForSync(masterKey: CryptoKey): Promise<WebDAVConfig | n
     }
 
     return config
-  } catch {
+  } catch (error) {
+    Logger.error('Failed to load config for sync', error)
     return null
   }
 }
@@ -731,8 +728,8 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
     let remoteHistory: HistoryItem[] = []
     try {
       remoteHistory = await syncFromCloud()
-    } catch {
-      Logger.info('No remote history found or first sync')
+    } catch (error) {
+      Logger.info('No remote history found or first sync', error)
     }
 
     const merged = await mergeHistory(localHistory, remoteHistory)
@@ -817,6 +814,7 @@ export {
   validateEncryptionKey,
   getMasterKey,
   setMasterPassword,
+  setSessionMasterPassword,
   clearMasterPassword,
   verifyMasterPassword,
   encryptData,

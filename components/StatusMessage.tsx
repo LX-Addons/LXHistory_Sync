@@ -14,12 +14,16 @@ export default function StatusMessage({
   onClear,
 }: StatusMessageProps) {
   useEffect(() => {
-    if (message && duration > 0 && onClear) {
-      const timer = setTimeout(() => {
-        onClear()
-      }, duration)
+    if (!message || duration <= 0 || !onClear) {
+      return
+    }
 
-      return () => clearTimeout(timer)
+    const timer = setTimeout(() => {
+      onClear()
+    }, duration)
+
+    return () => {
+      clearTimeout(timer)
     }
   }, [message, duration, onClear])
 

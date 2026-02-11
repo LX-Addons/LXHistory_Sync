@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Storage } from '@plasmohq/storage'
+import { useStorage } from '@plasmohq/storage/hook'
 import { Virtuoso } from 'react-virtuoso'
 import type {
   HistoryItem as HistoryItemType,
@@ -13,6 +13,7 @@ import { getLocalHistory } from '~common/history'
 import { syncToCloud, syncFromCloud } from '~common/webdav'
 import HistoryItemComponent from '~components/HistoryItem'
 import SyncStatus from '~components/SyncStatus'
+import { ErrorBoundary } from '~components/ErrorBoundary'
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from '~store'
 import { extractDomain, applyTheme, getDomainFaviconUrl, getLetterIcon } from '~common/utils'
 import { Logger } from '~common/logger'
@@ -93,8 +94,6 @@ function DomainGroupItem({
   )
 }
 
-const storage = new Storage()
-
 const Popup: React.FC = () => {
   const [allHistoryItems, setAllHistoryItems] = useState<GroupedHistoryItem[]>([])
   const [historyItems, setHistoryItems] = useState<GroupedHistoryItem[]>([])
@@ -103,23 +102,20 @@ const Popup: React.FC = () => {
     message: string
     type: 'info' | 'success' | 'error'
   } | null>(null)
-  const [hasWebDAVConfig, setHasWebDAVConfig] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [themeConfig, setThemeConfig] = useState<{ theme: ThemeType }>({
+  const [themeConfig] = useStorage<{ theme: ThemeType }>(STORAGE_KEYS.THEME_CONFIG, {
     theme: DEFAULT_THEME_CONFIG.theme as ThemeType,
   })
-  const [generalConfig, setGeneralConfig] = useState<GeneralConfig>({
+  const [generalConfig] = useStorage<GeneralConfig>(STORAGE_KEYS.GENERAL_CONFIG, {
     ...DEFAULT_GENERAL_CONFIG,
     checkboxStyle: DEFAULT_GENERAL_CONFIG.checkboxStyle as CheckboxStyleType,
     iconSource: DEFAULT_GENERAL_CONFIG.iconSource as IconSourceType,
   })
+  const [webdavConfig] = useStorage<WebDAVConfig | null>('webdav_config', null)
   const [expandedDomains, setExpandedDomains] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     loadHistory()
-    checkWebDAVConfig()
-    loadThemeConfig()
-    loadGeneralConfig()
   }, [])
 
   useEffect(() => {
@@ -139,28 +135,6 @@ const Popup: React.FC = () => {
   useEffect(() => {
     applyTheme(themeConfig.theme)
   }, [themeConfig])
-
-  const loadThemeConfig = async () => {
-    try {
-      const savedThemeConfig = await storage.get<{ theme: ThemeType }>(STORAGE_KEYS.THEME_CONFIG)
-      if (savedThemeConfig) {
-        setThemeConfig(savedThemeConfig)
-      }
-    } catch (error) {
-      Logger.error('Failed to load theme config', error)
-    }
-  }
-
-  const loadGeneralConfig = async () => {
-    try {
-      const savedGeneralConfig = await storage.get<GeneralConfig>(STORAGE_KEYS.GENERAL_CONFIG)
-      if (savedGeneralConfig) {
-        setGeneralConfig(savedGeneralConfig)
-      }
-    } catch (error) {
-      Logger.error('Failed to load general config', error)
-    }
-  }
 
   useEffect(() => {
     if (searchQuery.trim() === '') {
@@ -184,15 +158,7 @@ const Popup: React.FC = () => {
     }
   }, [searchQuery, allHistoryItems])
 
-  const checkWebDAVConfig = async () => {
-    try {
-      const config = await storage.get<WebDAVConfig>('webdav_config')
-      setHasWebDAVConfig(!!config?.url && !!config?.username)
-    } catch (error) {
-      Logger.error('Failed to check WebDAV config', error)
-      setHasWebDAVConfig(false)
-    }
-  }
+  const hasWebDAVConfig = !!webdavConfig?.url && !!webdavConfig?.username
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp)
@@ -205,7 +171,7 @@ const Popup: React.FC = () => {
     } else if (date.toDateString() === yesterday.toDateString()) {
       return '昨天'
     } else {
-      return date.toLocaleDateString([], {
+      return date.toLocaleDateString('zh-CN', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -372,90 +338,92 @@ const Popup: React.FC = () => {
   }
 
   return (
-    <div className="container">
-      <div className="card">
-        <div className="title-bar">
-          <h1>历史记录</h1>
-          <div className="action-buttons">
-            <button
-              className="action-button"
-              title="设置"
-              onClick={() => chrome.runtime.openOptionsPage()}
-            >
-              ⚙️
-            </button>
-          </div>
-        </div>
-
-        {hasWebDAVConfig && (
-          <div className="sync-buttons-container">
-            <div className="button-group">
-              <button className="btn-primary" onClick={handleSyncToCloud}>
-                同步到云端
-              </button>
-              <button className="btn-secondary" onClick={handleSyncFromCloud}>
-                从云端同步
+    <ErrorBoundary>
+      <div className="container">
+        <div className="card">
+          <div className="title-bar">
+            <h1>历史记录</h1>
+            <div className="action-buttons">
+              <button
+                className="action-button"
+                title="设置"
+                onClick={() => chrome.runtime.openOptionsPage()}
+              >
+                ⚙️
               </button>
             </div>
-            <SyncStatus status={syncStatus} />
           </div>
-        )}
 
-        {generalConfig.searchEnabled && (
-          <div className="search-container">
-            <input
-              type="text"
-              className="search-box"
-              placeholder="搜索历史记录..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
-        )}
-
-        <div className="history-list-container">
-          {isLoading ? (
-            <div className="loading">加载历史记录中...</div>
-          ) : historyItems.length === 0 ? (
-            <div className="no-history">
-              <p>暂无浏览记录</p>
-              <p className="hint">浏览网页后，历史记录将显示在这里</p>
+          {hasWebDAVConfig && (
+            <div className="sync-buttons-container">
+              <div className="button-group">
+                <button className="btn-primary" onClick={handleSyncToCloud}>
+                  同步到云端
+                </button>
+                <button className="btn-secondary" onClick={handleSyncFromCloud}>
+                  从云端同步
+                </button>
+              </div>
+              <SyncStatus status={syncStatus} />
             </div>
-          ) : (
-            <Virtuoso
-              data={historyItems}
-              itemContent={(index, item) => {
-                if (item.type === 'date') {
-                  return <DateGroupItem date={JSON.stringify(item.data)} />
-                } else if (item.type === 'domain') {
-                  const domainData = item.data as { domain: string; count: number }
-                  return (
-                    <DomainGroupItem
-                      domain={domainData.domain}
-                      count={domainData.count}
-                      isExpanded={expandedDomains.has(item.id)}
-                      iconSource={generalConfig.iconSource}
-                      onToggle={() => handleDomainClick(item.id)}
-                    />
-                  )
-                } else {
-                  if (!shouldShowHistoryItem(index, item)) {
-                    return null
-                  }
-                  return (
-                    <HistoryItemComponent
-                      item={item.data as HistoryItemType}
-                      showUrls={generalConfig.showUrls}
-                      iconSource={generalConfig.iconSource}
-                    />
-                  )
-                }
-              }}
-            />
           )}
+
+          {generalConfig.searchEnabled && (
+            <div className="search-container">
+              <input
+                type="text"
+                className="search-box"
+                placeholder="搜索历史记录..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+          )}
+
+          <div className="history-list-container">
+            {isLoading ? (
+              <div className="loading">加载历史记录中...</div>
+            ) : historyItems.length === 0 ? (
+              <div className="no-history">
+                <p>暂无浏览记录</p>
+                <p className="hint">浏览网页后，历史记录将显示在这里</p>
+              </div>
+            ) : (
+              <Virtuoso
+                data={historyItems}
+                itemContent={(index, item) => {
+                  if (item.type === 'date') {
+                    return <DateGroupItem date={item.data as string} />
+                  } else if (item.type === 'domain') {
+                    const domainData = item.data as { domain: string; count: number }
+                    return (
+                      <DomainGroupItem
+                        domain={domainData.domain}
+                        count={domainData.count}
+                        isExpanded={expandedDomains.has(item.id)}
+                        iconSource={generalConfig.iconSource}
+                        onToggle={() => handleDomainClick(item.id)}
+                      />
+                    )
+                  } else {
+                    if (!shouldShowHistoryItem(index, item)) {
+                      return null
+                    }
+                    return (
+                      <HistoryItemComponent
+                        item={item.data as HistoryItemType}
+                        showUrls={generalConfig.showUrls}
+                        iconSource={generalConfig.iconSource}
+                      />
+                    )
+                  }
+                }}
+              />
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </ErrorBoundary>
   )
 }
 
