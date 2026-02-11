@@ -633,7 +633,7 @@ async function prepareUploadContent(
 }
 
 function handleHttpError(response: Response): CloudSyncResult {
-  let errorMessage: string | undefined
+  let errorMessage: string | undefined = '同步失败'
   switch (response.status) {
     case 401:
       errorMessage = '认证失败，请检查用户名和密码'
@@ -658,8 +658,19 @@ function handleHttpError(response: Response): CloudSyncResult {
   return {
     success: false,
     error: errorMessage,
-    message: errorMessage,
+    message: errorMessage || '同步失败',
     recovery: recovery.actions,
+  }
+}
+
+export async function testWebDAVConnection(config: WebDAVConfig): Promise<CloudSyncResult> {
+  if (!config || !config.url || !config.username || !config.password) {
+    return {
+      success: false,
+      error: '请先填写完整的 WebDAV 配置',
+      message: '配置不完整',
+      recovery: '请填写 WebDAV 服务器地址、用户名和密码',
+    }
   }
 }
 
@@ -679,6 +690,19 @@ export async function testWebDAVConnection(config: WebDAVConfig): Promise<CloudS
     const testUrl = config.url.replace(/\/$/, '') + '/'
 
     const response = await fetch(testUrl, {
+      method: 'PROPFIND',
+      headers: {
+        Authorization: `Basic ${authString}`,
+        Depth: '0',
+      },
+    })
+
+  try {
+    const authString = btoa(`${config.username}:${config.password}`)
+    const testUrl = new URL(config.url)
+    const testPath = testUrl.pathname.replace(/\/$/, '') + '/'
+
+    const response = await fetch(testPath, {
       method: 'PROPFIND',
       headers: {
         Authorization: `Basic ${authString}`,
@@ -728,7 +752,7 @@ export async function parseResponseData(
   return (await response.json()) as HistoryItem[]
 }
 
-function throwConfigError(errorMessage: string): never {
+function throwConfigError(errorMessage: string): CloudSyncResult {
   const recovery = getErrorRecovery(new Error(errorMessage))
   const error = new Error(recovery.message) as Error & { recovery: string }
   error.recovery = recovery.actions
@@ -768,17 +792,13 @@ async function getValidatedConfig(): Promise<WebDAVConfig> {
     throwConfigError('配置未设置或无效')
   }
 
-  return config
+  return config!
 }
 
 async function createWebDAVClient(
   config: WebDAVConfig
 ): Promise<{ fetch: (path: string, options?: RequestInit) => Promise<Response> }> {
-  // Defensive check: password should exist at this point, but guard against direct calls
-  if (!config.password) {
-    throwConfigError('WebDAV 密码不能为空')
-  }
-  const auth = `Basic ${btoa(config.username + ':' + config.password)}`
+  const auth = `Basic ${btoa(config.username + ':' + (config.password || ''))}`
   const baseUrl = config.url.replace(/\/$/, '')
 
   async function fetchWithConfig(path: string, options: RequestInit = {}): Promise<Response> {
@@ -820,36 +840,11 @@ async function executeSync<T>(operation: SyncOperation<T>): Promise<T> {
       throw error
     }
     Logger.error(operation.errorMessage || 'Sync operation failed', error)
-    // Defensive: handle non-Error types (e.g., thrown strings)
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    const recovery = getErrorRecovery(new Error(errorMessage))
+    const recovery = getErrorRecovery(error as Error)
     throw Object.assign(new Error(recovery.message), { recovery: recovery.actions })
   } finally {
     await clearSessionConfig()
   }
-}
-
-// Internal function to fetch remote data without executeSync wrapper
-async function fetchRemoteHistory(
-  client: { fetch: (path: string, options?: RequestInit) => Promise<Response> },
-  config: WebDAVConfig
-): Promise<HistoryItem[]> {
-  const response = await client.fetch(`/${WEBDAV_FILENAME}`, { method: 'GET' })
-
-  if (response.status === 404) return []
-
-  if (!response.ok) {
-    const httpError = handleHttpError(response)
-    throwConfigError(httpError.error || '同步失败')
-  }
-
-  const data = await parseResponseData(response, config)
-
-  if (!Array.isArray(data)) {
-    throwConfigError('云端数据格式错误')
-  }
-
-  return data
 }
 
 export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyncResult> {

@@ -613,7 +613,7 @@ input::placeholder {
   margin: var(--spacing-sm) 0;
 }
 
-.loading-text {
+.loading {
   text-align: center;
   padding: var(--spacing-xl) var(--spacing-md);
   color: var(--text-light);
@@ -649,7 +649,7 @@ input::placeholder {
 }
 
 .skeleton-title {
-  width: 40%;
+  width: 80px;
   height: 16px;
   border-radius: 4px;
   background-color: var(--border-color);
@@ -657,7 +657,7 @@ input::placeholder {
 }
 
 .skeleton-url {
-  width: 75%;
+  width: 200px;
   height: 12px;
   border-radius: 4px;
   background-color: var(--border-color);
@@ -668,11 +668,9 @@ input::placeholder {
   0% {
     opacity: 0.3;
   }
-
   50% {
     opacity: 0.5;
   }
-
   100% {
     opacity: 0.3;
   }

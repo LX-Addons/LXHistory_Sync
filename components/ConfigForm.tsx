@@ -79,15 +79,15 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
   }
 
   const handleKeyChange = (value: string) => {
-    const validation = validateEncryptionKey(value)
     onConfigChange({
       ...config,
       encryption: {
         ...config.encryption,
         key: value,
-        keyStrength: validation.strength,
+        keyStrength: validateEncryptionKey(value).strength,
       },
     })
+    const validation = validateEncryptionKey(value)
     setKeyStrength(validation.strength)
     setValidationErrors(prev => ({
       ...prev,
