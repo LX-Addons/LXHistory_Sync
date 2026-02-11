@@ -373,11 +373,7 @@ const Popup: React.FC = () => {
           {hasWebDAVConfig && (
             <div className="sync-buttons-container">
               <div className="button-group">
-                <button
-                  className="btn-primary"
-                  onClick={handleSyncToCloud}
-                  disabled={isSyncing}
-                >
+                <button className="btn-primary" onClick={handleSyncToCloud} disabled={isSyncing}>
                   {isSyncing ? '同步中...' : '同步到云端'}
                 </button>
                 <button
