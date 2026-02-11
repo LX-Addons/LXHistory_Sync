@@ -743,23 +743,23 @@ async function loadConfigForSync(masterKey: CryptoKey | null): Promise<WebDAVCon
   }
 }
 
+async function getValidatedConfig(): Promise<WebDAVConfig> {
+  const masterKey = await getMasterKey()
+  if (!masterKey) {
+    throwConfigError('请先设置主密码以保护您的数据')
+  }
+
+  const config = await loadConfigForSync(masterKey)
+  if (!config) {
+    throwConfigError('配置未设置或无效')
+  }
+
+  return config!
+}
+
 export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyncResult> {
   try {
-    const masterKey = await getMasterKey()
-    if (!masterKey) {
-      return {
-        success: false,
-        error: '请先设置主密码以保护您的数据',
-        message: '请先设置主密码以保护您的数据',
-      }
-    }
-
-    const configResult = await loadConfigForSync(masterKey)
-    if (!configResult) {
-      return createValidationResult('配置未设置或无效')
-    }
-
-    const config: WebDAVConfig = configResult
+    const config = await getValidatedConfig()
 
     let remoteHistory: HistoryItem[] = []
     try {
@@ -805,17 +805,7 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
 
 export async function syncFromCloud(): Promise<HistoryItem[]> {
   try {
-    const masterKey = await getMasterKey()
-    if (!masterKey) {
-      throwConfigError('请先设置主密码以保护您的数据')
-    }
-
-    const configResult = await loadConfigForSync(masterKey)
-    if (!configResult) {
-      throwConfigError('配置未设置或无效')
-    }
-
-    const config: WebDAVConfig = configResult!
+    const config = await getValidatedConfig()
 
     const response = await fetchWithRetry(`${config.url.replace(/\/$/, '')}/${WEBDAV_FILENAME}`, {
       method: 'GET',
