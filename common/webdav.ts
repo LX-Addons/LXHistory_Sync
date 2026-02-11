@@ -195,9 +195,43 @@ async function verifyMasterPassword(password: string): Promise<boolean> {
 }
 
 async function setMasterPassword(password: string): Promise<void> {
+  const oldMasterKey = await getMasterKey()
+
+  let configToReencrypt: WebDAVConfig | null = null
+  if (oldMasterKey) {
+    try {
+      configToReencrypt = await loadAndDecryptConfig(oldMasterKey)
+    } catch (error) {
+      Logger.warn('Failed to decrypt config with old master key, will use current config', error)
+    }
+  }
+
+  if (!configToReencrypt) {
+    configToReencrypt = await getConfig()
+  }
+
   const hash = await hashPassword(password)
   const salt = generateSalt()
   await storage.set('master_password_data', { hash, salt })
+
+  if (configToReencrypt && (configToReencrypt.password || configToReencrypt.encryption?.key)) {
+    const newMasterKey = await deriveMasterKey(password, salt)
+    const configToSave: WebDAVConfig = {
+      ...configToReencrypt,
+      password: configToReencrypt.password
+        ? await encryptData(configToReencrypt.password, newMasterKey)
+        : undefined,
+      encryption: {
+        ...configToReencrypt.encryption,
+        key: configToReencrypt.encryption?.key
+          ? await encryptData(configToReencrypt.encryption.key, newMasterKey)
+          : undefined,
+      },
+    }
+    await storage.set('webdav_config', configToSave)
+  }
+
+  await clearSessionConfig()
 }
 
 async function setSessionMasterPassword(password: string): Promise<void> {
@@ -205,8 +239,22 @@ async function setSessionMasterPassword(password: string): Promise<void> {
 }
 
 async function clearMasterPassword(): Promise<void> {
+  const masterKey = await getMasterKey()
+
+  if (masterKey) {
+    try {
+      const decryptedConfig = await loadAndDecryptConfig(masterKey)
+      if (decryptedConfig) {
+        await storage.set('webdav_config', decryptedConfig)
+      }
+    } catch (error) {
+      Logger.warn('Failed to decrypt config before clearing master password', error)
+    }
+  }
+
   await storage.remove('master_password_data')
   await sessionStorage.remove('master_password_input')
+  await clearSessionConfig()
 }
 
 function calculateKeyStrength(key: string): KeyStrength {
