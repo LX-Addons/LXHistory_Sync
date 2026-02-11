@@ -207,6 +207,18 @@ form {
   gap: var(--spacing-sm);
 }
 
+.password-toggle-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  padding: 4px;
+}
+
 label {
   font-weight: 500;
   color: var(--text-color);
@@ -282,6 +294,7 @@ input::placeholder {
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
@@ -600,7 +613,7 @@ input::placeholder {
   margin: var(--spacing-sm) 0;
 }
 
-.loading {
+.loading-text {
   text-align: center;
   padding: var(--spacing-xl) var(--spacing-md);
   color: var(--text-light);
@@ -636,7 +649,7 @@ input::placeholder {
 }
 
 .skeleton-title {
-  width: 80px;
+  width: 40%;
   height: 16px;
   border-radius: 4px;
   background-color: var(--border-color);
@@ -644,7 +657,7 @@ input::placeholder {
 }
 
 .skeleton-url {
-  width: 200px;
+  width: 75%;
   height: 12px;
   border-radius: 4px;
   background-color: var(--border-color);
@@ -655,9 +668,11 @@ input::placeholder {
   0% {
     opacity: 0.3;
   }
+
   50% {
     opacity: 0.5;
   }
+
   100% {
     opacity: 0.3;
   }

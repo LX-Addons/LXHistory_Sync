@@ -3,15 +3,12 @@ import ConfigForm from '~components/ConfigForm'
 import { useConfig } from '~hooks/useConfig'
 import { useGeneralConfig } from '~hooks/useGeneralConfig'
 import { testWebDAVConnection } from '~common/webdav'
-import StatusMessage from '~components/StatusMessage'
+import StatusMessage, { type StatusMessageData } from '~components/StatusMessage'
 
 export default function WebDAVTab() {
   const { config, setConfig, status, handleSave } = useConfig()
   const { generalConfig } = useGeneralConfig()
-  const [testStatus, setTestStatus] = useState<{
-    message: string
-    type: 'info' | 'success' | 'error'
-  } | null>(null)
+  const [testStatus, setTestStatus] = useState<StatusMessageData | null>(null)
 
   const handleTestConnection = async () => {
     if (!config.url || !config.username || !config.password) {
@@ -23,11 +20,18 @@ export default function WebDAVTab() {
     }
 
     setTestStatus({ message: '正在测试连接...', type: 'info' })
-    const result = await testWebDAVConnection(config)
-    setTestStatus({
-      message: result.message || (result.success ? '连接测试成功' : '连接测试失败'),
-      type: result.success ? 'success' : 'error',
-    })
+    try {
+      const result = await testWebDAVConnection(config)
+      setTestStatus({
+        message: result.message || (result.success ? '连接测试成功' : '连接测试失败'),
+        type: result.success ? 'success' : 'error',
+      })
+    } catch (error) {
+      setTestStatus({
+        message: '连接测试过程中发生未知错误',
+        type: 'error',
+      })
+    }
   }
 
   return (

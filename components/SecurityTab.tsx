@@ -157,17 +157,8 @@ export default function SecurityTab() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: '8px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-light)',
-                  cursor: 'pointer',
-                  padding: '4px',
-                }}
+                aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                className="password-toggle-btn"
               >
                 {showPassword ? '🙈' : '👁'}
               </button>
@@ -188,17 +179,8 @@ export default function SecurityTab() {
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                style={{
-                  position: 'absolute',
-                  right: '8px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-light)',
-                  cursor: 'pointer',
-                  padding: '4px',
-                }}
+                aria-label={showConfirmPassword ? '隐藏确认密码' : '显示确认密码'}
+                className="password-toggle-btn"
               >
                 {showConfirmPassword ? '🙈' : '👁'}
               </button>

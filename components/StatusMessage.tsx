@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-interface StatusMessageData {
+export interface StatusMessageData {
   message: string
   type?: 'info' | 'success' | 'error'
 }
@@ -37,8 +37,15 @@ export default function StatusMessage({
   const messageText = typeof message === 'string' ? message : message.message
   const messageType = typeof message === 'string' ? type : message.type
 
-  const messageClass =
-    messageType === 'error' || messageText.includes('失败') ? 'message-error' : 'message-success'
+  const getMessageClass = () => {
+    if (messageType === 'error' || messageText.includes('失败')) {
+      return 'message-error'
+    }
+    if (messageType === 'info') {
+      return 'message-info'
+    }
+    return 'message-success'
+  }
 
-  return <div className={`message ${messageClass}`}>{messageText}</div>
+  return <div className={`message ${getMessageClass()}`}>{messageText}</div>
 }

@@ -142,10 +142,10 @@ jobs:
       - name: Prepare release assets
         if: github.event_name == 'workflow_dispatch'
         run: |
-          VERSION=${{ steps.get_version.outputs.version }}
-          PROJECT_NAME=${{ steps.get_version.outputs.project_name }}
-          BUILD_DIR=${{ steps.get_version.outputs.build_dir }}
-          ZIP_FILE=${{ steps.get_version.outputs.zip_file }}
+          VERSION="${{ steps.get_version.outputs.version }}"
+          PROJECT_NAME="${{ steps.get_version.outputs.project_name }}"
+          BUILD_DIR="${{ steps.get_version.outputs.build_dir }}"
+          ZIP_FILE="${{ steps.get_version.outputs.zip_file }}"
 
           # Use temp directory for all release operations
           TEMP_DIR=$(mktemp -d)
@@ -211,8 +211,8 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         id: release_notes
         run: |
-          VERSION=${{ steps.get_version.outputs.version }}
-          TEMP_DIR=$temp_dir
+          VERSION="${{ steps.get_version.outputs.version }}"
+          TEMP_DIR="${{ env.temp_dir }}"
 
           # Get the last tag
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
@@ -302,32 +302,32 @@ jobs:
 
           # Add installation section (only for non-patch releases or first release)
           if [ -z "$LAST_TAG" ] || [[ ! "$VERSION" =~ \.[0-9]+$ ]]; then
-            cat >> $TEMP_DIR/RELEASE_NOTES.md << 'EOF'
-## 📦 Installation
-
-### Chrome Web Store (Coming Soon)
-1. Visit the Chrome Web Store
-2. Search for "LXHistory_Sync"
-3. Click "Add to Chrome"
-
-### Manual Installation
-1. Download the `.zip` file from this release
-2. Extract the contents
-3. Open Chrome and navigate to `chrome://extensions/`
-4. Enable "Developer mode" in the top right
-5. Click "Load unpacked" and select the extracted folder
-
-EOF
+            {
+              echo "## 📦 Installation"
+              echo ""
+              echo "### Chrome Web Store (Coming Soon)"
+              echo "1. Visit the Chrome Web Store"
+              echo "2. Search for \"LXHistory_Sync\""
+              echo "3. Click \"Add to Chrome\""
+              echo ""
+              echo "### Manual Installation"
+              echo "1. Download the \`.zip\` file from this release"
+              echo "2. Extract the contents"
+              echo "3. Open Chrome and navigate to \`chrome://extensions/\`"
+              echo "4. Enable \"Developer mode\" in the top right"
+              echo "5. Click \"Load unpacked\" and select the extracted folder"
+              echo ""
+            } >> $TEMP_DIR/RELEASE_NOTES.md
           fi
 
           # Add files section
-          cat >> $TEMP_DIR/RELEASE_NOTES.md << EOF
-
-## 📄 Files
-
-- \`LXHistory_Sync-v${VERSION}.zip\` - Chrome Extension package
-
-EOF
+          {
+            echo ""
+            echo "## 📄 Files"
+            echo ""
+            echo "- \`LXHistory_Sync-v${VERSION}.zip\` - Chrome Extension package"
+            echo ""
+          } >> $TEMP_DIR/RELEASE_NOTES.md
 
           echo "notes_file=$TEMP_DIR/RELEASE_NOTES.md" >> $GITHUB_OUTPUT
           echo "✓ Release notes generated"
@@ -383,11 +383,11 @@ EOF
       - name: Create Release
         if: github.event_name == 'workflow_dispatch'
         run: |
-          VERSION=${{ steps.get_version.outputs.version }}
-          RELEASE_TYPE=${{ github.event.inputs.release_type }}
-          PRERELEASE=${{ github.event.inputs.prerelease }}
-          NOTES_FILE=${{ steps.release_notes.outputs.notes_file }}
-          ZIP_FILE=$release_zip_file
+          VERSION="${{ steps.get_version.outputs.version }}"
+          RELEASE_TYPE="${{ github.event.inputs.release_type }}"
+          PRERELEASE="${{ github.event.inputs.prerelease }}"
+          NOTES_FILE="${{ steps.release_notes.outputs.notes_file }}"
+          ZIP_FILE="${{ env.release_zip_file }}"
 
           # Generate tag and title based on release type
           if [ "$RELEASE_TYPE" == "production" ]; then
@@ -401,8 +401,13 @@ EOF
           fi
 
           if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            echo "ℹ️ Tag $TAG_NAME already exists, skipping release creation"
-            echo "ℹ️ To create a new release, update the version in package.json"
+            echo "ℹ️ Tag $TAG_NAME already exists"
+            if [ "$RELEASE_TYPE" == "production" ]; then
+              echo "❌ Production release tag already exists. Please update the version in package.json"
+              exit 1
+            else
+              echo "ℹ️ Skipping test release creation"
+            fi
           else
             echo "📦 Creating $RELEASE_TYPE release: $TAG_NAME"
 
