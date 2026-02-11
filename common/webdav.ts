@@ -728,7 +728,7 @@ export async function parseResponseData(
   return (await response.json()) as HistoryItem[]
 }
 
-function throwConfigError(errorMessage: string): CloudSyncResult {
+function throwConfigError(errorMessage: string): never {
   const recovery = getErrorRecovery(new Error(errorMessage))
   const error = new Error(recovery.message) as Error & { recovery: string }
   error.recovery = recovery.actions
@@ -769,8 +769,12 @@ async function getValidatedConfig(): Promise<WebDAVConfig> {
   }
 
   const storedConfig = await getConfig()
-  if (!storedConfig || !validateConfig(storedConfig)) {
-    throwConfigError('配置未设置或无效')
+  if (!storedConfig) {
+    throwConfigError('配置未设置')
+  }
+
+  if (!validateConfig(storedConfig)) {
+    throwConfigError('配置无效')
   }
 
   const validationResult = await validateAllConfig(storedConfig)
