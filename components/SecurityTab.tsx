@@ -169,7 +169,7 @@ export default function SecurityTab() {
                   padding: '4px',
                 }}
               >
-                {showPassword ? '👁' : '👁'}
+                {showPassword ? '🙈' : '👁'}
               </button>
             </div>
           </div>
@@ -200,7 +200,7 @@ export default function SecurityTab() {
                   padding: '4px',
                 }}
               >
-                {showConfirmPassword ? '👁' : '👁'}
+                {showConfirmPassword ? '🙈' : '👁'}
               </button>
             </div>
           </div>
