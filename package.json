@@ -1,7 +1,7 @@
 {
   "name": "LXHistory_Sync",
   "displayName": "LXHistory_Sync",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "LXHistory_Sync - WebDAV 历史记录同步扩展",
   "packageManager": "npm@10.0.0",
   "scripts": {
