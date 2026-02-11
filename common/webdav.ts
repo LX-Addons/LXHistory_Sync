@@ -780,10 +780,29 @@ async function getSyncContext(): Promise<{ config: WebDAVConfig; client: { fetch
   return { config, client }
 }
 
-export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyncResult> {
-  try {
-    const { config, client } = await getSyncContext()
+interface SyncOperation<T> {
+  (context: { config: WebDAVConfig; client: { fetch: (path: string, options?: RequestInit) => Promise<Response> } }): Promise<T>
+  errorMessage?: string
+}
 
+async function executeSync<T>(operation: SyncOperation<T>): Promise<T> {
+  const context = await getSyncContext()
+  try {
+    return await operation(context)
+  } catch (error) {
+    if (error instanceof Error && 'recovery' in error) {
+      throw error
+    }
+    Logger.error(operation.errorMessage || 'Sync operation failed', error)
+    const recovery = getErrorRecovery(error as Error)
+    throw Object.assign(new Error(recovery.message), { recovery: recovery.actions })
+  } finally {
+    await clearSessionConfig()
+  }
+}
+
+export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyncResult> {
+  return executeSync(async ({ config, client }) => {
     let remoteHistory: HistoryItem[] = []
     try {
       remoteHistory = await syncFromCloud()
@@ -801,7 +820,7 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
     })
 
     if (!response.ok) {
-      return handleHttpError(response)
+      return handleHttpError(response) as CloudSyncResult
     }
 
     return {
@@ -809,25 +828,11 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
       items: merged,
       message: '同步到云端成功！已合并数据。',
     }
-  } catch (error) {
-    Logger.error('Sync to cloud failed', error)
-    const recovery = getErrorRecovery(error as Error)
-    return {
-      success: false,
-      error: recovery.message,
-      message: recovery.message,
-      recovery: recovery.actions,
-    }
-  } finally {
-    await clearSessionConfig()
-  }
+  })
 }
 
 export async function syncFromCloud(): Promise<HistoryItem[]> {
-  try {
-    const config = await getValidatedConfig()
-    const client = await createWebDAVClient(config)
-
+  return executeSync(async ({ config, client }) => {
     const response = await client.fetch(`/${WEBDAV_FILENAME}`, { method: 'GET' })
 
     if (response.status === 404) return []
@@ -844,12 +849,7 @@ export async function syncFromCloud(): Promise<HistoryItem[]> {
     }
 
     return data
-  } catch (error) {
-    Logger.error('Sync from cloud failed', error)
-    throw error
-  } finally {
-    await clearSessionConfig()
-  }
+  })
 }
 
 export {
