@@ -5,8 +5,8 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
   if (req.name === 'SYNC_DATA') {
     Logger.info('Sync requested from popup')
     try {
-      const mod = await import('../index')
-      await mod.performScheduledSync()
+      const { performScheduledSync } = await import('../index')
+      await performScheduledSync()
       res.send({ success: true })
     } catch (error) {
       Logger.error('Sync failed', error)
@@ -15,8 +15,8 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
   } else if (req.name === 'UPDATE_SYNC_SETTINGS') {
     Logger.info('Sync settings updated')
     try {
-      const mod = await import('../index')
-      mod.startSyncTimer()
+      const { startSyncTimer } = await import('../index')
+      await startSyncTimer()
       res.send({ success: true })
     } catch (error) {
       Logger.error('Failed to update sync settings', error)

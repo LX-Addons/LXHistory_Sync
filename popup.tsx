@@ -13,7 +13,6 @@ import { getLocalHistory } from '~common/history'
 import { syncToCloud, syncFromCloud } from '~common/webdav'
 import HistoryItemComponent from '~components/HistoryItem'
 import SyncStatus from '~components/SyncStatus'
-import SkeletonLoader from '~components/SkeletonLoader'
 import { ErrorBoundary } from '~components/ErrorBoundary'
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from '~store'
 import { extractDomain, applyTheme, getDomainFaviconUrl, getLetterIcon } from '~common/utils'
@@ -105,7 +104,6 @@ const Popup: React.FC = () => {
     type: 'info' | 'success' | 'error'
   } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [themeConfig] = useStorage<{ theme: ThemeType }>(STORAGE_KEYS.THEME_CONFIG, {
     theme: DEFAULT_THEME_CONFIG.theme as ThemeType,
   })
@@ -161,14 +159,6 @@ const Popup: React.FC = () => {
       setHistoryItems(filtered)
     }
   }, [debouncedSearchQuery, allHistoryItems])
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery)
-    }, 300)
-
-    return () => clearTimeout(timer)
-  }, [searchQuery])
 
   const hasWebDAVConfig = !!webdavConfig?.url && !!webdavConfig?.username
 
@@ -405,7 +395,7 @@ const Popup: React.FC = () => {
 
           <div className="history-list-container">
             {isLoading ? (
-              <SkeletonLoader count={5} />
+              <div className="loading">加载历史记录中...</div>
             ) : historyItems.length === 0 ? (
               <div className="no-history">
                 <p>暂无浏览记录</p>
