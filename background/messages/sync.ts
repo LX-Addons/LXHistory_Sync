@@ -16,7 +16,7 @@ const handler: PlasmoMessaging.MessageHandler = async (req, res) => {
     Logger.info('Sync settings updated')
     try {
       const mod = await import('../index')
-      await mod.startSyncTimer()
+      mod.startSyncTimer()
       res.send({ success: true })
     } catch (error) {
       Logger.error('Failed to update sync settings', error)
