@@ -757,7 +757,9 @@ async function getValidatedConfig(): Promise<WebDAVConfig> {
   return config!
 }
 
-async function createWebDAVClient(config: WebDAVConfig): Promise<{ fetch: (path: string, options?: RequestInit) => Promise<Response> }> {
+async function createWebDAVClient(
+  config: WebDAVConfig
+): Promise<{ fetch: (path: string, options?: RequestInit) => Promise<Response> }> {
   const auth = `Basic ${btoa(config.username + ':' + (config.password || ''))}`
   const baseUrl = config.url.replace(/\/$/, '')
 
@@ -774,14 +776,20 @@ async function createWebDAVClient(config: WebDAVConfig): Promise<{ fetch: (path:
   return { fetch: fetchWithConfig }
 }
 
-async function getSyncContext(): Promise<{ config: WebDAVConfig; client: { fetch: (path: string, options?: RequestInit) => Promise<Response> } }> {
+async function getSyncContext(): Promise<{
+  config: WebDAVConfig
+  client: { fetch: (path: string, options?: RequestInit) => Promise<Response> }
+}> {
   const config = await getValidatedConfig()
   const client = await createWebDAVClient(config)
   return { config, client }
 }
 
 interface SyncOperation<T> {
-  (context: { config: WebDAVConfig; client: { fetch: (path: string, options?: RequestInit) => Promise<Response> } }): Promise<T>
+  (context: {
+    config: WebDAVConfig
+    client: { fetch: (path: string, options?: RequestInit) => Promise<Response> }
+  }): Promise<T>
   errorMessage?: string
 }
 
