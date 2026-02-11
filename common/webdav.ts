@@ -759,16 +759,26 @@ async function loadConfigForSync(masterKey: CryptoKey | null): Promise<WebDAVCon
 
 async function getValidatedConfig(): Promise<WebDAVConfig> {
   const masterKey = await getMasterKey()
-  if (!masterKey) {
-    throwConfigError('请先设置主密码以保护您的数据')
+
+  if (masterKey) {
+    const config = await loadConfigForSync(masterKey)
+    if (!config) {
+      throwConfigError('配置未设置或无效')
+    }
+    return config!
   }
 
-  const config = await loadConfigForSync(masterKey)
-  if (!config) {
+  const storedConfig = await getConfig()
+  if (!storedConfig || !validateConfig(storedConfig)) {
     throwConfigError('配置未设置或无效')
   }
 
-  return config!
+  const validationResult = await validateAllConfig(storedConfig)
+  if (validationResult) {
+    throwConfigError(validationResult.error || '配置无效')
+  }
+
+  return storedConfig
 }
 
 async function createWebDAVClient(
