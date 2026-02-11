@@ -30,7 +30,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
         <div className="error-fallback">
           <h2>出错了</h2>
           <p>{this.state.error?.message}</p>
-          <button onClick={() => window.location.reload()}>刷新页面</button>
+          <button onClick={() => globalThis.location.reload()}>刷新页面</button>
         </div>
       )
     }
