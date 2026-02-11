@@ -590,26 +590,6 @@ input::placeholder {
   opacity: 0.7;
 }
 
-.button-group {
-  display: flex;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-md);
-}
-
-.button-group button {
-  flex: 1;
-}
-
-@media (max-width: 480px) {
-  .button-group {
-    flex-direction: column;
-  }
-
-  .button-group button {
-    width: 100%;
-  }
-}
-
 .no-history {
   text-align: center;
   padding: var(--spacing-xl) var(--spacing-md);

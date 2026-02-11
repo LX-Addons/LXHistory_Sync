@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { Logger } from '~common/logger'
 import {
   getMasterKey,
   setMasterPassword as saveMasterPassword,
+  setSessionMasterPassword,
   clearMasterPassword,
 } from '~common/webdav'
 
@@ -37,6 +39,7 @@ export function useMasterPassword() {
 
     try {
       await saveMasterPassword(masterPassword)
+      await setSessionMasterPassword(masterPassword)
       setMasterPasswordError('')
       setStatus('主密码设置成功！')
       setHasMasterPassword(true)
@@ -46,7 +49,8 @@ export function useMasterPassword() {
       setTimeout(() => {
         setStatus('')
       }, 3000)
-    } catch {
+    } catch (error) {
+      Logger.error('Failed to set master password', error)
       setMasterPasswordError('设置主密码失败')
     }
   }
@@ -59,7 +63,8 @@ export function useMasterPassword() {
       setTimeout(() => {
         setStatus('')
       }, 3000)
-    } catch {
+    } catch (error) {
+      Logger.error('Failed to clear master password', error)
       setMasterPasswordError('清除主密码失败')
     }
   }

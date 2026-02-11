@@ -45,7 +45,8 @@ export function useConfig() {
               key: decryptedKey,
             },
           })
-        } catch {
+        } catch (error) {
+          Logger.error('Failed to decrypt config', error)
           setConfig(savedConfig)
         }
       } else {
