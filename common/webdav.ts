@@ -774,10 +774,15 @@ async function createWebDAVClient(config: WebDAVConfig): Promise<{ fetch: (path:
   return { fetch: fetchWithConfig }
 }
 
+async function getSyncContext(): Promise<{ config: WebDAVConfig; client: { fetch: (path: string, options?: RequestInit) => Promise<Response> } }> {
+  const config = await getValidatedConfig()
+  const client = await createWebDAVClient(config)
+  return { config, client }
+}
+
 export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyncResult> {
   try {
-    const config = await getValidatedConfig()
-    const client = await createWebDAVClient(config)
+    const { config, client } = await getSyncContext()
 
     let remoteHistory: HistoryItem[] = []
     try {
