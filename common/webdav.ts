@@ -757,9 +757,27 @@ async function getValidatedConfig(): Promise<WebDAVConfig> {
   return config!
 }
 
+async function createWebDAVClient(config: WebDAVConfig): Promise<{ fetch: (path: string, options?: RequestInit) => Promise<Response> }> {
+  const auth = `Basic ${btoa(config.username + ':' + (config.password || ''))}`
+  const baseUrl = config.url.replace(/\/$/, '')
+
+  async function fetchWithConfig(path: string, options: RequestInit = {}): Promise<Response> {
+    return await fetchWithRetry(`${baseUrl}${path}`, {
+      ...options,
+      headers: {
+        ...options.headers,
+        Authorization: auth,
+      },
+    })
+  }
+
+  return { fetch: fetchWithConfig }
+}
+
 export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyncResult> {
   try {
     const config = await getValidatedConfig()
+    const client = await createWebDAVClient(config)
 
     let remoteHistory: HistoryItem[] = []
     try {
@@ -771,12 +789,9 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
     const merged = await mergeHistory(localHistory, remoteHistory)
     const { content, contentType } = await prepareUploadContent(merged, config)
 
-    const response = await fetchWithRetry(`${config.url.replace(/\/$/, '')}/${WEBDAV_FILENAME}`, {
+    const response = await client.fetch(`/${WEBDAV_FILENAME}`, {
       method: 'PUT',
-      headers: {
-        Authorization: `Basic ${btoa(config.username + ':' + (config.password || ''))}`,
-        'Content-Type': contentType,
-      },
+      headers: { 'Content-Type': contentType },
       body: content,
     })
 
@@ -806,13 +821,9 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
 export async function syncFromCloud(): Promise<HistoryItem[]> {
   try {
     const config = await getValidatedConfig()
+    const client = await createWebDAVClient(config)
 
-    const response = await fetchWithRetry(`${config.url.replace(/\/$/, '')}/${WEBDAV_FILENAME}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Basic ${btoa(config.username + ':' + (config.password || ''))}`,
-      },
-    })
+    const response = await client.fetch(`/${WEBDAV_FILENAME}`, { method: 'GET' })
 
     if (response.status === 404) return []
 

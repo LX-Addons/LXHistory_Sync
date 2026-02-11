@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useDebounce } from 'use-debounce'
 import { useStorage } from '@plasmohq/storage/hook'
 import { Virtuoso } from 'react-virtuoso'
 import type {
@@ -104,6 +105,7 @@ const Popup: React.FC = () => {
     type: 'info' | 'success' | 'error'
   } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearchQuery] = useDebounce(searchQuery, 300)
   const [themeConfig] = useStorage<{ theme: ThemeType }>(STORAGE_KEYS.THEME_CONFIG, {
     theme: DEFAULT_THEME_CONFIG.theme as ThemeType,
   })
