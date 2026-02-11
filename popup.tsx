@@ -303,7 +303,8 @@ const Popup: React.FC = () => {
     setIsSyncing(true)
     setSyncStatus({ message: '正在同步到云端...', type: 'info' })
     try {
-      const rawHistoryItems = historyItems
+      // Use allHistoryItems instead of historyItems to avoid syncing filtered data
+      const rawHistoryItems = allHistoryItems
         .filter(item => item.type === 'item')
         .map(item => item.data as HistoryItemType)
 
@@ -372,11 +373,15 @@ const Popup: React.FC = () => {
           {hasWebDAVConfig && (
             <div className="sync-buttons-container">
               <div className="button-group">
-                <button className="btn-primary" onClick={handleSyncToCloud}>
-                  同步到云端
+                <button className="btn-primary" onClick={handleSyncToCloud} disabled={isSyncing}>
+                  {isSyncing ? '同步中...' : '同步到云端'}
                 </button>
-                <button className="btn-secondary" onClick={handleSyncFromCloud}>
-                  从云端同步
+                <button
+                  className="btn-secondary"
+                  onClick={handleSyncFromCloud}
+                  disabled={isSyncing}
+                >
+                  {isSyncing ? '同步中...' : '从云端同步'}
                 </button>
               </div>
               <SyncStatus status={syncStatus} />
@@ -397,7 +402,7 @@ const Popup: React.FC = () => {
 
           <div className="history-list-container">
             {isLoading ? (
-              <div className="loading">加载历史记录中...</div>
+              <div className="loading-text">加载历史记录中...</div>
             ) : historyItems.length === 0 ? (
               <div className="no-history">
                 <p>暂无浏览记录</p>

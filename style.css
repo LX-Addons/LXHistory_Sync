@@ -207,6 +207,18 @@ form {
   gap: var(--spacing-sm);
 }
 
+.password-toggle-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  padding: 4px;
+}
+
 label {
   font-weight: 500;
   color: var(--text-color);
@@ -282,6 +294,7 @@ input::placeholder {
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }

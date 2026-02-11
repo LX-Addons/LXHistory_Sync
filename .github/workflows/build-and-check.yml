@@ -6,6 +6,20 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release Type'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+          - test
+          - production
+      prerelease:
+        description: 'Mark as Pre-release'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   build-and-check:
@@ -17,11 +31,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install dependencies
         run: |
@@ -123,33 +139,41 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: npm run package
 
-      - name: Rename build artifacts
+      - name: Prepare release assets
         if: github.event_name == 'workflow_dispatch'
         run: |
-          VERSION=${{ steps.get_version.outputs.version }}
-          PROJECT_NAME=${{ steps.get_version.outputs.project_name }}
-          BUILD_DIR=${{ steps.get_version.outputs.build_dir }}
-          ZIP_FILE=${{ steps.get_version.outputs.zip_file }}
+          VERSION="${{ steps.get_version.outputs.version }}"
+          PROJECT_NAME="${{ steps.get_version.outputs.project_name }}"
+          BUILD_DIR="${{ steps.get_version.outputs.build_dir }}"
+          ZIP_FILE="${{ steps.get_version.outputs.zip_file }}"
+
+          # Use temp directory for all release operations
+          TEMP_DIR=$(mktemp -d)
+          echo "temp_dir=$TEMP_DIR" >> $GITHUB_ENV
 
           PROD_BUILD=$(find build -type d -name "chrome-mv3-prod" -o -name "*-mv3-prod" | head -1)
 
           if [ -n "$PROD_BUILD" ]; then
-            mv "$PROD_BUILD" "build/$BUILD_DIR"
-            echo "✓ Renamed build directory to build/$BUILD_DIR"
+            cp -r "$PROD_BUILD" "$TEMP_DIR/$BUILD_DIR"
+            echo "✓ Copied build to temp directory: $TEMP_DIR/$BUILD_DIR"
           fi
 
           ZIP_PATH=$(find build -name "*.zip" | head -1)
           if [ -f "$ZIP_PATH" ]; then
-            mv "$ZIP_PATH" "build/$ZIP_FILE"
-            echo "✓ Renamed zip file to build/$ZIP_FILE"
+            cp "$ZIP_PATH" "$TEMP_DIR/$ZIP_FILE"
+            echo "✓ Copied zip to temp directory: $TEMP_DIR/$ZIP_FILE"
           fi
+
+          # Store paths for release step
+          echo "release_build_dir=$TEMP_DIR/$BUILD_DIR" >> $GITHUB_ENV
+          echo "release_zip_file=$TEMP_DIR/$ZIP_FILE" >> $GITHUB_ENV
 
       - name: Verify zip file creation
         if: github.event_name == 'workflow_dispatch'
         run: |
-          ZIP_FILE=$(find build -name "*.zip" | head -1)
+          ZIP_FILE=$release_zip_file
           if [ -f "$ZIP_FILE" ]; then
-            echo "✓ Zip file created: $ZIP_FILE"
+            echo "✓ Zip file ready: $ZIP_FILE"
             ls -la "$ZIP_FILE"
             ZIP_SIZE=$(wc -c < "$ZIP_FILE")
             echo "✓ Zip file size: $ZIP_SIZE bytes"
@@ -164,32 +188,150 @@ jobs:
       - name: Verify build artifacts
         if: github.event_name == 'workflow_dispatch'
         run: |
-          echo "📁 Build artifacts:"
-          ls -la build/
-          VERSION=${{ steps.get_version.outputs.version }}
-          PROJECT_NAME=${{ steps.get_version.outputs.project_name }}
-          BUILD_DIR="build/${PROJECT_NAME}-${VERSION}"
-          if [ -d "$BUILD_DIR" ]; then
-            echo "📁 Production build:"
-            ls -la "$BUILD_DIR"
-            REQUIRED_FILES=("manifest.json" "popup.html")
-            for file in "${REQUIRED_FILES[@]}"; do
-              if [ -f "$BUILD_DIR/$file" ]; then
-                echo "✓ $file exists"
-              else
-                echo "✗ $file missing"
-                exit 1
-              fi
-            done
-            if [ -f "$BUILD_DIR/background.js" ] || [ -f "$BUILD_DIR/background/index.js" ]; then
-              echo "✓ background script exists"
+          echo "📁 Build artifacts in temp directory:"
+          ls -la $release_build_dir
+
+          REQUIRED_FILES=("manifest.json" "popup.html")
+          for file in "${REQUIRED_FILES[@]}"; do
+            if [ -f "$release_build_dir/$file" ]; then
+              echo "✓ $file exists"
             else
-              echo "ℹ️ background script not found"
+              echo "✗ $file missing"
+              exit 1
             fi
+          done
+
+          if [ -f "$release_build_dir/background.js" ] || [ -f "$release_build_dir/background/index.js" ]; then
+            echo "✓ background script exists"
           else
-            echo "✗ Build directory not found"
-            exit 1
+            echo "ℹ️ background script not found"
           fi
+
+      - name: Generate release notes
+        if: github.event_name == 'workflow_dispatch'
+        id: release_notes
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          TEMP_DIR="${{ env.temp_dir }}"
+
+          # Get the last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          # Initialize categories
+          declare -A categories
+          categories=(
+            ["feat"]="✨ Features"
+            ["fix"]="🐛 Bug Fixes"
+            ["refactor"]="♻️ Refactoring"
+            ["perf"]="⚡ Performance"
+            ["docs"]="📚 Documentation"
+            ["style"]="💄 Styles"
+            ["test"]="🧪 Tests"
+            ["chore"]="🔧 Chores"
+            ["ci"]="👷 CI/CD"
+            ["build"]="📦 Build"
+            ["other"]="📝 Other Changes"
+          )
+
+          # Create temp files for each category
+          for key in "${!categories[@]}"; do
+            touch "$TEMP_DIR/commits_$key.txt"
+          done
+
+          # Get commits and categorize them
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"%s|%h" 2>/dev/null)
+            echo "## 🎉 First Release v$VERSION" > $TEMP_DIR/RELEASE_NOTES.md
+          else
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"%s|%h" 2>/dev/null)
+            echo "## 🚀 Release v$VERSION" > $TEMP_DIR/RELEASE_NOTES.md
+            echo "" >> $TEMP_DIR/RELEASE_NOTES.md
+            echo "**Full Changelog**: [$LAST_TAG...v$VERSION](../../compare/$LAST_TAG...v$VERSION)" >> $TEMP_DIR/RELEASE_NOTES.md
+          fi
+
+          echo "" >> $TEMP_DIR/RELEASE_NOTES.md
+
+          # Parse and categorize commits
+          while IFS='|' read -r message hash; do
+            [ -z "$message" ] && continue
+
+            # Extract type and description
+            if [[ $message =~ ^([a-z]+)(\(.+\))?!?:[[:space:]]*(.+)$ ]]; then
+              type="${BASH_REMATCH[1]}"
+              desc="${BASH_REMATCH[3]}"
+            else
+              type="other"
+              desc="$message"
+            fi
+
+            # Map conventional commit types to categories
+            case "$type" in
+              feat|feature) category="feat" ;;
+              fix|bugfix|hotfix) category="fix" ;;
+              refactor) category="refactor" ;;
+              perf|performance) category="perf" ;;
+              docs|doc) category="docs" ;;
+              style) category="style" ;;
+              test|tests) category="test" ;;
+              chore) category="chore" ;;
+              ci) category="ci" ;;
+              build) category="build" ;;
+              *) category="other" ;;
+            esac
+
+            echo "- $desc (${hash:0:7})" >> "$TEMP_DIR/commits_$category.txt"
+          done <<< "$COMMITS"
+
+          # Write categorized commits to release notes (only non-empty categories)
+          has_changes=false
+          for key in feat fix refactor perf docs style test chore ci build other; do
+            if [ -s "$TEMP_DIR/commits_$key.txt" ]; then
+              echo "### ${categories[$key]}" >> $TEMP_DIR/RELEASE_NOTES.md
+              echo "" >> $TEMP_DIR/RELEASE_NOTES.md
+              cat "$TEMP_DIR/commits_$key.txt" >> $TEMP_DIR/RELEASE_NOTES.md
+              echo "" >> $TEMP_DIR/RELEASE_NOTES.md
+              has_changes=true
+            fi
+          done
+
+          # If no categorized changes found
+          if [ "$has_changes" = false ]; then
+            echo "*No significant changes in this release.*" >> $TEMP_DIR/RELEASE_NOTES.md
+            echo "" >> $TEMP_DIR/RELEASE_NOTES.md
+          fi
+
+          # Add installation section (only for non-patch releases or first release)
+          if [ -z "$LAST_TAG" ] || [[ ! "$VERSION" =~ \.[0-9]+$ ]]; then
+            {
+              echo "## 📦 Installation"
+              echo ""
+              echo "### Chrome Web Store (Coming Soon)"
+              echo "1. Visit the Chrome Web Store"
+              echo "2. Search for \"LXHistory_Sync\""
+              echo "3. Click \"Add to Chrome\""
+              echo ""
+              echo "### Manual Installation"
+              echo "1. Download the \`.zip\` file from this release"
+              echo "2. Extract the contents"
+              echo "3. Open Chrome and navigate to \`chrome://extensions/\`"
+              echo "4. Enable \"Developer mode\" in the top right"
+              echo "5. Click \"Load unpacked\" and select the extracted folder"
+              echo ""
+            } >> $TEMP_DIR/RELEASE_NOTES.md
+          fi
+
+          # Add files section
+          {
+            echo ""
+            echo "## 📄 Files"
+            echo ""
+            echo "- \`LXHistory_Sync-v${VERSION}.zip\` - Chrome Extension package"
+            echo ""
+          } >> $TEMP_DIR/RELEASE_NOTES.md
+
+          echo "notes_file=$TEMP_DIR/RELEASE_NOTES.md" >> $GITHUB_OUTPUT
+          echo "✓ Release notes generated"
+          cat $TEMP_DIR/RELEASE_NOTES.md
 
       - name: Security check
         run: |
@@ -241,32 +383,76 @@ jobs:
       - name: Create Release
         if: github.event_name == 'workflow_dispatch'
         run: |
-          VERSION=${{ steps.get_version.outputs.version }}
-          TAG_NAME="v${VERSION}"
+          VERSION="${{ steps.get_version.outputs.version }}"
+          RELEASE_TYPE="${{ github.event.inputs.release_type }}"
+          PRERELEASE="${{ github.event.inputs.prerelease }}"
+          NOTES_FILE="${{ steps.release_notes.outputs.notes_file }}"
+          ZIP_FILE="${{ env.release_zip_file }}"
+
+          # Generate tag and title based on release type
+          if [ "$RELEASE_TYPE" == "production" ]; then
+            TAG_NAME="v${VERSION}"
+            RELEASE_TITLE="🚀 Release v${VERSION}"
+          else
+            # Test release: add timestamp to tag
+            TIMESTAMP=$(date +%Y%m%d%H%M%S)
+            TAG_NAME="v${VERSION}-test-${TIMESTAMP}"
+            RELEASE_TITLE="🧪 Test Release v${VERSION} (${TIMESTAMP})"
+          fi
 
           if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            echo "ℹ️ Tag $TAG_NAME already exists, skipping release creation"
-            echo "ℹ️ To create a new release, update the version in package.json"
+            echo "ℹ️ Tag $TAG_NAME already exists"
+            if [ "$RELEASE_TYPE" == "production" ]; then
+              echo "❌ Production release tag already exists. Please update the version in package.json"
+              exit 1
+            else
+              echo "ℹ️ Skipping test release creation"
+            fi
           else
-            echo "📦 Creating release for version $VERSION"
-            gh release create "$TAG_NAME" \
-              --title "Release v$VERSION" \
-              --notes "## LXHistory_Sync Release
+            echo "📦 Creating $RELEASE_TYPE release: $TAG_NAME"
 
-            ### Version
-            $VERSION
+            # Add release type notice to notes
+            if [ "$RELEASE_TYPE" == "test" ]; then
+              echo "" >> $NOTES_FILE
+              echo "---" >> $NOTES_FILE
+              echo "" >> $NOTES_FILE
+              echo "> ⚠️ **This is a TEST release**" >> $NOTES_FILE
+              echo "> " >> $NOTES_FILE
+              echo "> This release is for testing purposes only and may contain unstable features." >> $NOTES_FILE
+              echo "> For production use, please download the [latest stable release](../../releases/latest)." >> $NOTES_FILE
+              echo "> " >> $NOTES_FILE
+              echo "> **Build Info:**" >> $NOTES_FILE
+              echo "> - Build Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $NOTES_FILE
+              echo "> - Commit: ${{ github.sha }}" >> $NOTES_FILE
+              echo "> - Branch: ${{ github.ref_name }}" >> $NOTES_FILE
+            fi
 
-            ### Changes
-            - Manual build from GitHub Actions
-            - Latest code changes
-
-            ### Files
-            - Chrome extension zip file
-            - Build artifacts" \
-              build/*.zip
+            # Create release with appropriate flags
+            if [ "$PRERELEASE" == "true" ] || [ "$RELEASE_TYPE" == "test" ]; then
+              gh release create "$TAG_NAME" \
+                --title "$RELEASE_TITLE" \
+                --notes-file "$NOTES_FILE" \
+                --prerelease \
+                "$ZIP_FILE"
+            else
+              gh release create "$TAG_NAME" \
+                --title "$RELEASE_TITLE" \
+                --notes-file "$NOTES_FILE" \
+                --latest \
+                "$ZIP_FILE"
+            fi
+            echo "✅ Release created successfully: $TAG_NAME"
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup temp files
+        if: github.event_name == 'workflow_dispatch' && always()
+        run: |
+          if [ -n "$temp_dir" ] && [ -d "$temp_dir" ]; then
+            rm -rf "$temp_dir"
+            echo "✅ Cleaned up temporary files"
+          fi
 
       - name: Summary
         run: |
@@ -277,12 +463,23 @@ jobs:
           echo "✅ Dependency audit completed"
 
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "✅ Extension packaged"
-            ZIP_FILE=$(find build -name "*.zip" | head -1)
-            if [ -f "$ZIP_FILE" ]; then
-              echo "✅ Zip file: $(basename "$ZIP_FILE")"
+            RELEASE_TYPE=${{ github.event.inputs.release_type }}
+            PRERELEASE=${{ github.event.inputs.prerelease }}
+
+            echo ""
+            echo "## Release Information"
+            echo "📦 Release Type: $RELEASE_TYPE"
+            if [ "$RELEASE_TYPE" == "test" ]; then
+              echo "🔖 Tag Format: v{VERSION}-test-{TIMESTAMP}"
+              echo "⚠️  Pre-release: true (forced for test releases)"
+            else
+              echo "🔖 Tag Format: v{VERSION}"
+              echo "⚠️  Pre-release: $PRERELEASE"
             fi
+            echo ""
+            echo "✅ Extension packaged"
             echo "✅ Build artifacts uploaded"
+            echo "✅ Release notes generated"
             echo "✅ Release created"
             echo "✅ Ready for deployment"
           else
@@ -303,7 +500,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install dependencies
         run: |
@@ -336,7 +533,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install dependencies
         run: |

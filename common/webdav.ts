@@ -369,7 +369,14 @@ async function encrypt(
     combined.set(new Uint8Array(encrypted), actualSalt.length + iv.length)
     combined.set(new Uint8Array(signature), actualSalt.length + iv.length + encrypted.byteLength)
 
-    return btoa(String.fromCharCode(...combined))
+    // Chunk processing to avoid stack overflow with large data
+    const CHUNK_SIZE = 65536 // 64KB chunks
+    let binaryString = ''
+    for (let i = 0; i < combined.length; i += CHUNK_SIZE) {
+      const chunk = combined.slice(i, i + CHUNK_SIZE)
+      binaryString += String.fromCharCode(...chunk)
+    }
+    return btoa(binaryString)
   } catch (error) {
     Logger.error('Encryption failed', error)
     throw new Error('加密失败', { cause: error })
@@ -668,10 +675,10 @@ export async function testWebDAVConnection(config: WebDAVConfig): Promise<CloudS
 
   try {
     const authString = btoa(`${config.username}:${config.password}`)
-    const testUrl = new URL(config.url)
-    const testPath = testUrl.pathname.replace(/\/$/, '') + '/'
+    // Use full URL instead of just pathname
+    const testUrl = config.url.replace(/\/$/, '') + '/'
 
-    const response = await fetch(testPath, {
+    const response = await fetch(testUrl, {
       method: 'PROPFIND',
       headers: {
         Authorization: `Basic ${authString}`,
@@ -707,7 +714,14 @@ export async function parseResponseData(
     const blob = await response.blob()
     const arrayBuffer = await blob.arrayBuffer()
     const uint8Array = new Uint8Array(arrayBuffer)
-    const encryptedData = btoa(String.fromCharCode(...uint8Array))
+    // Chunk processing to avoid stack overflow with large files
+    const CHUNK_SIZE = 65536 // 64KB chunks
+    let binaryString = ''
+    for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {
+      const chunk = uint8Array.slice(i, i + CHUNK_SIZE)
+      binaryString += String.fromCharCode(...chunk)
+    }
+    const encryptedData = btoa(binaryString)
     return await decrypt(encryptedData, config.encryption.key, config.encryption.type)
   }
 
@@ -802,18 +816,44 @@ async function executeSync<T>(operation: SyncOperation<T>): Promise<T> {
       throw error
     }
     Logger.error(operation.errorMessage || 'Sync operation failed', error)
-    const recovery = getErrorRecovery(error as Error)
+    // Defensive: handle non-Error types (e.g., thrown strings)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const recovery = getErrorRecovery(new Error(errorMessage))
     throw Object.assign(new Error(recovery.message), { recovery: recovery.actions })
   } finally {
     await clearSessionConfig()
   }
 }
 
+// Internal function to fetch remote data without executeSync wrapper
+async function fetchRemoteHistory(
+  client: { fetch: (path: string, options?: RequestInit) => Promise<Response> },
+  config: WebDAVConfig
+): Promise<HistoryItem[]> {
+  const response = await client.fetch(`/${WEBDAV_FILENAME}`, { method: 'GET' })
+
+  if (response.status === 404) return []
+
+  if (!response.ok) {
+    const httpError = handleHttpError(response)
+    throwConfigError(httpError.error || '同步失败')
+  }
+
+  const data = await parseResponseData(response, config)
+
+  if (!Array.isArray(data)) {
+    throwConfigError('云端数据格式错误')
+  }
+
+  return data
+}
+
 export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyncResult> {
   return executeSync(async ({ config, client }) => {
     let remoteHistory: HistoryItem[] = []
     try {
-      remoteHistory = await syncFromCloud()
+      // Use internal function to avoid nested executeSync
+      remoteHistory = await fetchRemoteHistory(client, config)
     } catch (error) {
       Logger.info('No remote history found or first sync', error)
     }

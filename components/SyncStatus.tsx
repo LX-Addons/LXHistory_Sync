@@ -1,10 +1,8 @@
 import React from 'react'
+import { type StatusMessageData } from './StatusMessage'
 
 interface SyncStatusProps {
-  status: {
-    message: string
-    type: 'info' | 'success' | 'error'
-  } | null
+  status: StatusMessageData | null
 }
 
 const SyncStatus: React.FC<SyncStatusProps> = ({ status }) => {

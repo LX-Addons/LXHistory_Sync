@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-interface StatusMessageData {
+export interface StatusMessageData {
   message: string
   type?: 'info' | 'success' | 'error'
 }
