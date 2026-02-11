@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import ConfigForm from '~components/ConfigForm'
 import { useConfig } from '~hooks/useConfig'
 import { useGeneralConfig } from '~hooks/useGeneralConfig'
