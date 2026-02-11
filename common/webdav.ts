@@ -728,7 +728,7 @@ export async function parseResponseData(
   return (await response.json()) as HistoryItem[]
 }
 
-function throwConfigError(errorMessage: string): CloudSyncResult {
+function throwConfigError(errorMessage: string): never {
   const recovery = getErrorRecovery(new Error(errorMessage))
   const error = new Error(recovery.message) as Error & { recovery: string }
   error.recovery = recovery.actions
@@ -759,16 +759,30 @@ async function loadConfigForSync(masterKey: CryptoKey | null): Promise<WebDAVCon
 
 async function getValidatedConfig(): Promise<WebDAVConfig> {
   const masterKey = await getMasterKey()
-  if (!masterKey) {
-    throwConfigError('请先设置主密码以保护您的数据')
+
+  if (masterKey) {
+    const config = await loadConfigForSync(masterKey)
+    if (!config) {
+      throwConfigError('配置未设置或无效')
+    }
+    return config!
   }
 
-  const config = await loadConfigForSync(masterKey)
-  if (!config) {
-    throwConfigError('配置未设置或无效')
+  const storedConfig = await getConfig()
+  if (!storedConfig) {
+    throwConfigError('配置未设置')
   }
 
-  return config!
+  if (!validateConfig(storedConfig)) {
+    throwConfigError('配置无效')
+  }
+
+  const validationResult = await validateAllConfig(storedConfig)
+  if (validationResult) {
+    throwConfigError(validationResult.error || '配置无效')
+  }
+
+  return storedConfig
 }
 
 async function createWebDAVClient(
