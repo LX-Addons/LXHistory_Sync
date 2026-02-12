@@ -3,6 +3,7 @@ import path from 'path'
 import os from 'os'
 
 const isCI = !!process.env.CI
+const coverageDir = isCI ? path.join(os.tmpdir(), 'coverage') : './coverage'
 
 export default defineConfig({
   test: {
@@ -13,6 +14,21 @@ export default defineConfig({
     exclude: ['node_modules', 'build', '.plasmo'],
     outputFile: isCI ? path.join(os.tmpdir(), 'test-results', 'unit-test-results.xml') : undefined,
     reporters: isCI ? ['default', 'junit'] : ['default'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['lcov', 'text'],
+      reportsDirectory: coverageDir,
+      exclude: [
+        'node_modules/**',
+        'build/**',
+        '.plasmo/**',
+        '**/*.d.ts',
+        '**/__tests__/**',
+        '**/vitest.config.ts',
+        '**/vitest.setup.ts',
+        '**/playwright.config.ts',
+      ],
+    },
   },
   resolve: {
     alias: {
