@@ -515,13 +515,11 @@ jobs:
         run: npm run test:unit -- --coverage
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          slug: ${{ github.repository }}
           files: /tmp/coverage/lcov.info
           flags: unittests
-          name: codecov-umbrella
           fail_ci_if_error: false
           verbose: true
 
