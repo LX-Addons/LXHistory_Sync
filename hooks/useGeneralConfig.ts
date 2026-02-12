@@ -12,6 +12,7 @@ export function useGeneralConfig() {
     ...DEFAULT_GENERAL_CONFIG,
     checkboxStyle: DEFAULT_GENERAL_CONFIG.checkboxStyle as CheckboxStyleType,
     iconSource: DEFAULT_GENERAL_CONFIG.iconSource as IconSourceType,
+    maxHistoryItems: DEFAULT_GENERAL_CONFIG.maxHistoryItems,
   })
   const [status, setStatus] = useState('')
 

@@ -1,13 +1,27 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { Storage } from '@plasmohq/storage'
 import type { IconSourceType, CheckboxStyleType } from '~common/types'
 import { useGeneralConfig } from '~hooks/useGeneralConfig'
 import CheckboxField from '~components/CheckboxField'
 import StatusMessage from '~components/StatusMessage'
 
+const storage = new Storage()
+
 export default function GeneralTab() {
   const { generalConfig, setGeneralConfig, status, handleSave, getCheckboxClassName } =
     useGeneralConfig()
   const [localStatus, setLocalStatus] = useState('')
+  const [hasMasterPassword, setHasMasterPassword] = useState(false)
+
+  useEffect(() => {
+    const checkMasterPassword = async () => {
+      const masterPasswordData = await storage.get<{ hash: string; salt: string }>(
+        'master_password_data'
+      )
+      setHasMasterPassword(!!masterPasswordData?.hash)
+    }
+    checkMasterPassword()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     await handleSave(e)
@@ -82,6 +96,26 @@ export default function GeneralTab() {
           </select>
         </div>
 
+        <div className="form-group">
+          <label htmlFor="max-history-items">历史记录获取数量:</label>
+          <select
+            id="max-history-items"
+            value={generalConfig.maxHistoryItems}
+            onChange={e =>
+              setGeneralConfig({
+                ...generalConfig,
+                maxHistoryItems: Number.parseInt(e.target.value),
+              })
+            }
+          >
+            <option value="500">500 条</option>
+            <option value="1000">1000 条 (默认)</option>
+            <option value="2000">2000 条</option>
+            <option value="5000">5000 条</option>
+            <option value="10000">10000 条</option>
+          </select>
+        </div>
+
         <CheckboxField
           id="auto-sync-enabled"
           label="启用自动同步"
@@ -94,6 +128,15 @@ export default function GeneralTab() {
           }
           className={getCheckboxClassName(generalConfig.checkboxStyle)}
         />
+
+        {hasMasterPassword && (
+          <div
+            className="message message-info"
+            style={{ fontSize: '12px', marginTop: '-8px', marginBottom: '8px' }}
+          >
+            ⚠️ 已设置主密码时，自动同步功能不可用。请使用手动同步。
+          </div>
+        )}
 
         <div className="form-group">
           <label htmlFor="sync-interval">同步间隔 (分钟):</label>

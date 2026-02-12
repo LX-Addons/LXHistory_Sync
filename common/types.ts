@@ -65,6 +65,7 @@ export interface GeneralConfig {
   iconSource: IconSourceType
   autoSyncEnabled: boolean
   syncInterval: number
+  maxHistoryItems: number
 }
 
 export interface HistoryItemProps {

@@ -1,8 +1,12 @@
-import type { HistoryItem } from './types'
+import { Storage } from '@plasmohq/storage'
+import type { HistoryItem, GeneralConfig } from './types'
+import { STORAGE_KEYS, DEFAULT_GENERAL_CONFIG } from '~store'
 import { Logger } from './logger'
 
+const storage = new Storage()
+
 export async function getLocalHistory(): Promise<HistoryItem[]> {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
       Logger.info('Starting to get local history...')
 
@@ -12,11 +16,14 @@ export async function getLocalHistory(): Promise<HistoryItem[]> {
         return
       }
 
+      const generalConfig = await storage.get<GeneralConfig>(STORAGE_KEYS.GENERAL_CONFIG)
+      const maxResults = generalConfig?.maxHistoryItems ?? DEFAULT_GENERAL_CONFIG.maxHistoryItems
+
       chrome.history.search(
         {
           text: '',
           startTime: 0,
-          maxResults: 1000,
+          maxResults,
         },
         items => {
           if (chrome.runtime.lastError) {
