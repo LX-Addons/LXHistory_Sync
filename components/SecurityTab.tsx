@@ -35,9 +35,7 @@ export default function SecurityTab() {
     <div className="settings-section">
       <div className="section-header">
         <h2>安全设置</h2>
-        <p style={{ fontSize: '14px', color: 'var(--text-light)' }}>
-          管理主密码以保护您的敏感数据安全。
-        </p>
+        <p className="section-description">管理主密码以保护您的敏感数据安全。</p>
       </div>
 
       {!showMasterPasswordForm ? (
@@ -72,7 +70,7 @@ export default function SecurityTab() {
             </div>
             <div className="status-content">
               <h3>{hasMasterPassword ? '主密码已设置' : '主密码未设置'}</h3>
-              <p style={{ fontSize: '14px', color: 'var(--text-light)', marginTop: '8px' }}>
+              <p className="status-description">
                 {hasMasterPassword
                   ? '您的WebDAV凭证和加密密钥已受到主密码保护。'
                   : '设置主密码以加密您的WebDAV凭证和加密密钥，确保数据安全。'}
@@ -82,12 +80,7 @@ export default function SecurityTab() {
 
           <div className="security-actions">
             {!hasMasterPassword ? (
-              <button
-                type="button"
-                onClick={handleShowForm}
-                className="btn-primary"
-                style={{ width: '100%' }}
-              >
+              <button type="button" onClick={handleShowForm} className="btn-primary btn-full-width">
                 设置主密码
               </button>
             ) : (
@@ -95,16 +88,14 @@ export default function SecurityTab() {
                 <button
                   type="button"
                   onClick={handleShowForm}
-                  className="btn-secondary"
-                  style={{ width: '100%', marginBottom: 'var(--spacing-sm)' }}
+                  className="btn-secondary btn-full-width"
                 >
                   修改主密码
                 </button>
                 <button
                   type="button"
                   onClick={handleClearWithStatus}
-                  className="btn-error"
-                  style={{ width: '100%' }}
+                  className="btn-error btn-full-width"
                 >
                   清除主密码
                 </button>
@@ -118,25 +109,13 @@ export default function SecurityTab() {
         <form onSubmit={handleSubmitWithStatus} className="master-password-form">
           <div className="form-header">
             <h3>{hasMasterPassword ? '修改主密码' : '设置主密码'}</h3>
-            <button
-              type="button"
-              onClick={handleHideForm}
-              className="btn-close"
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-light)',
-                fontSize: '20px',
-                cursor: 'pointer',
-                padding: '4px',
-              }}
-            >
+            <button type="button" onClick={handleHideForm} className="btn-close" aria-label="关闭">
               ×
             </button>
           </div>
 
           <div className="form-description">
-            <p style={{ fontSize: '14px', color: 'var(--text-light)' }}>
+            <p className="form-description-text">
               主密码用于加密您的WebDAV凭证和加密密钥，请妥善保管。
               <br />
               主密码长度至少为8个字符，建议使用强密码。
@@ -145,7 +124,7 @@ export default function SecurityTab() {
 
           <div className="form-group">
             <label htmlFor="master-password">主密码:</label>
-            <div style={{ position: 'relative' }}>
+            <div className="password-input-wrapper">
               <input
                 id="master-password"
                 type={showPassword ? 'text' : 'password'}
@@ -157,17 +136,8 @@ export default function SecurityTab() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: '8px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-light)',
-                  cursor: 'pointer',
-                  padding: '4px',
-                }}
+                className="password-toggle-btn"
+                aria-label={showPassword ? '隐藏密码' : '显示密码'}
               >
                 {showPassword ? '🙈' : '👁'}
               </button>
@@ -176,7 +146,7 @@ export default function SecurityTab() {
 
           <div className="form-group">
             <label htmlFor="master-password-confirm">确认主密码:</label>
-            <div style={{ position: 'relative' }}>
+            <div className="password-input-wrapper">
               <input
                 id="master-password-confirm"
                 type={showConfirmPassword ? 'text' : 'password'}
@@ -188,17 +158,8 @@ export default function SecurityTab() {
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                style={{
-                  position: 'absolute',
-                  right: '8px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-light)',
-                  cursor: 'pointer',
-                  padding: '4px',
-                }}
+                className="password-toggle-btn"
+                aria-label={showConfirmPassword ? '隐藏密码' : '显示密码'}
               >
                 {showConfirmPassword ? '🙈' : '👁'}
               </button>
@@ -206,21 +167,14 @@ export default function SecurityTab() {
           </div>
 
           {masterPasswordError && (
-            <div className="message-error" style={{ fontSize: '12px', marginTop: '4px' }}>
-              {masterPasswordError}
-            </div>
+            <div className="message-error error-hint">{masterPasswordError}</div>
           )}
 
           <div className="form-actions">
-            <button
-              type="button"
-              onClick={handleHideForm}
-              className="btn-secondary"
-              style={{ flex: 1 }}
-            >
+            <button type="button" onClick={handleHideForm} className="btn-secondary btn-flex-1">
               取消
             </button>
-            <button type="submit" className="btn-primary" style={{ flex: 1 }}>
+            <button type="submit" className="btn-primary btn-flex-1">
               {hasMasterPassword ? '修改主密码' : '设置主密码'}
             </button>
           </div>
