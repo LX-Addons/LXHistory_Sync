@@ -136,7 +136,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           required
         />
         {validationErrors.url && (
-          <div className="message-error" style={{ fontSize: '12px', marginTop: '4px' }}>
+          <div className="message-error error-hint">
             {validationErrors.url}
           </div>
         )}
@@ -163,7 +163,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           required
         />
         {validationErrors.password && (
-          <div className="message-error" style={{ fontSize: '12px', marginTop: '4px' }}>
+          <div className="message-error error-hint">
             {validationErrors.password}
           </div>
         )}
@@ -223,39 +223,24 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               required
             />
             {config.encryption.key && (
-              <div style={{ display: 'flex', alignItems: 'center', marginTop: '4px', gap: '8px' }}>
-                <span style={{ fontSize: '12px', color: 'var(--text-light)' }}>密钥强度：</span>
+              <div className="key-strength-indicator">
+                <span className="key-strength-label">密钥强度：</span>
                 <span
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    color: getStrengthColor(keyStrength),
-                  }}
+                  className="key-strength-text"
+                  style={{ color: getStrengthColor(keyStrength) }}
                 >
                   {getStrengthText(keyStrength)}
                 </span>
-                <div
-                  style={{
-                    flex: 1,
-                    height: '4px',
-                    backgroundColor: 'var(--border-color)',
-                    borderRadius: '2px',
-                    overflow: 'hidden',
-                  }}
-                >
+                <div className="key-strength-bar">
                   <div
-                    style={{
-                      width: getStrengthWidth(keyStrength),
-                      height: '100%',
-                      backgroundColor: getStrengthColor(keyStrength),
-                      transition: 'width 0.3s ease, background-color 0.3s ease',
-                    }}
+                    className={`key-strength-fill key-strength-${keyStrength}`}
+                    style={{ width: getStrengthWidth(keyStrength) }}
                   />
                 </div>
               </div>
             )}
             {validationErrors.encryptionKey && (
-              <div className="message-error" style={{ fontSize: '12px', marginTop: '4px' }}>
+              <div className="message-error error-hint">
                 {validationErrors.encryptionKey}
               </div>
             )}

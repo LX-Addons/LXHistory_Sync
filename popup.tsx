@@ -15,90 +15,24 @@ import { syncToCloud, syncFromCloud } from '~common/webdav'
 import HistoryItemComponent from '~components/HistoryItem'
 import SyncStatus from '~components/SyncStatus'
 import { ErrorBoundary } from '~components/ErrorBoundary'
+import SkeletonLoader from '~components/SkeletonLoader'
+import { DateGroupItem, DomainGroupItem } from '~components/popup'
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from '~store'
 import {
   extractDomain,
   applyTheme,
-  getDomainFaviconUrl,
-  getLetterIcon,
   ensureHostPermission,
 } from '~common/utils'
 import { Logger } from '~common/logger'
 import './style.css'
+
+const SEARCH_DEBOUNCE_MS = 300
 
 interface GroupedHistoryItem {
   id: string
   type: 'item' | 'date' | 'domain'
   data: HistoryItemType | string | { domain: string; count: number }
   isExpanded?: boolean
-}
-
-interface DomainGroupItemProps {
-  domain: string
-  count: number
-  isExpanded: boolean
-  iconSource: IconSourceType
-  onToggle: () => void
-}
-
-interface DomainIconProps {
-  domain: string
-  iconSource: IconSourceType
-}
-
-const DomainIcon: React.FC<DomainIconProps> = ({ domain, iconSource }) => {
-  const [hasError, setHasError] = useState(false)
-
-  if (iconSource === 'letter') {
-    return <span>{getLetterIcon(domain)}</span>
-  }
-
-  if (iconSource === 'none') {
-    return null
-  }
-
-  if (hasError) {
-    return <span>{getLetterIcon(domain)}</span>
-  }
-
-  return (
-    <img
-      src={getDomainFaviconUrl(domain, iconSource)}
-      alt={domain}
-      onError={() => setHasError(true)}
-    />
-  )
-}
-
-function DateGroupItem({ date }: { date: string }) {
-  return <div className="date-group">{date}</div>
-}
-
-function DomainGroupItem({
-  domain,
-  count,
-  isExpanded,
-  iconSource,
-  onToggle,
-}: DomainGroupItemProps) {
-  return (
-    <button
-      className={`domain-group ${isExpanded ? 'expanded' : 'collapsed'}`}
-      onClick={onToggle}
-      type="button"
-      aria-label={`${isExpanded ? '折叠' : '展开'} ${domain} (${count} 条)`}
-      aria-expanded={isExpanded}
-    >
-      <div className="domain-header">
-        <div className="domain-icon">
-          <DomainIcon domain={domain} iconSource={iconSource} />
-        </div>
-        <span className="domain-name">{domain}</span>
-        <span className="domain-count">{count} 条</span>
-        <span className="domain-toggle">{isExpanded ? '▼' : '▶'}</span>
-      </div>
-    </button>
-  )
 }
 
 const Popup: React.FC = () => {
@@ -111,7 +45,7 @@ const Popup: React.FC = () => {
     type: 'info' | 'success' | 'error'
   } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedSearchQuery] = useDebounce(searchQuery, 300)
+  const [debouncedSearchQuery] = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS)
   const [themeConfig] = useStorage<{ theme: ThemeType }>(STORAGE_KEYS.THEME_CONFIG, {
     theme: DEFAULT_THEME_CONFIG.theme as ThemeType,
   })
@@ -393,6 +327,7 @@ const Popup: React.FC = () => {
               <button
                 className="action-button"
                 title="设置"
+                aria-label="打开设置页面"
                 onClick={() => chrome.runtime.openOptionsPage()}
               >
                 ⚙️
@@ -432,7 +367,7 @@ const Popup: React.FC = () => {
 
           <div className="history-list-container">
             {isLoading ? (
-              <div className="loading-text">加载历史记录中...</div>
+              <SkeletonLoader count={10} />
             ) : historyItems.length === 0 ? (
               <div className="no-history">
                 <p>暂无浏览记录</p>
