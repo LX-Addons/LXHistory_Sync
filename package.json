@@ -49,8 +49,7 @@
   "manifest": {
     "permissions": [
       "history",
-      "storage",
-      "permissions"
+      "storage"
     ],
     "optional_host_permissions": [
       "https://*/*"
