@@ -136,9 +136,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           required
         />
         {validationErrors.url && (
-          <div className="message-error error-hint">
-            {validationErrors.url}
-          </div>
+          <div className="message-error error-hint">{validationErrors.url}</div>
         )}
       </div>
 
@@ -163,9 +161,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           required
         />
         {validationErrors.password && (
-          <div className="message-error error-hint">
-            {validationErrors.password}
-          </div>
+          <div className="message-error error-hint">{validationErrors.password}</div>
         )}
       </div>
 
@@ -240,9 +236,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               </div>
             )}
             {validationErrors.encryptionKey && (
-              <div className="message-error error-hint">
-                {validationErrors.encryptionKey}
-              </div>
+              <div className="message-error error-hint">{validationErrors.encryptionKey}</div>
             )}
           </div>
         </>

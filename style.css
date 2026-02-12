@@ -1630,7 +1630,9 @@ input::placeholder {
 
 .key-strength-fill {
   height: 100%;
-  transition: width 0.3s ease, background-color 0.3s ease;
+  transition:
+    width 0.3s ease,
+    background-color 0.3s ease;
 }
 
 .key-strength-weak {

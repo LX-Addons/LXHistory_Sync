@@ -35,9 +35,7 @@ export default function SecurityTab() {
     <div className="settings-section">
       <div className="section-header">
         <h2>安全设置</h2>
-        <p className="section-description">
-          管理主密码以保护您的敏感数据安全。
-        </p>
+        <p className="section-description">管理主密码以保护您的敏感数据安全。</p>
       </div>
 
       {!showMasterPasswordForm ? (
@@ -82,11 +80,7 @@ export default function SecurityTab() {
 
           <div className="security-actions">
             {!hasMasterPassword ? (
-              <button
-                type="button"
-                onClick={handleShowForm}
-                className="btn-primary btn-full-width"
-              >
+              <button type="button" onClick={handleShowForm} className="btn-primary btn-full-width">
                 设置主密码
               </button>
             ) : (
@@ -115,12 +109,7 @@ export default function SecurityTab() {
         <form onSubmit={handleSubmitWithStatus} className="master-password-form">
           <div className="form-header">
             <h3>{hasMasterPassword ? '修改主密码' : '设置主密码'}</h3>
-            <button
-              type="button"
-              onClick={handleHideForm}
-              className="btn-close"
-              aria-label="关闭"
-            >
+            <button type="button" onClick={handleHideForm} className="btn-close" aria-label="关闭">
               ×
             </button>
           </div>
@@ -178,17 +167,11 @@ export default function SecurityTab() {
           </div>
 
           {masterPasswordError && (
-            <div className="message-error error-hint">
-              {masterPasswordError}
-            </div>
+            <div className="message-error error-hint">{masterPasswordError}</div>
           )}
 
           <div className="form-actions">
-            <button
-              type="button"
-              onClick={handleHideForm}
-              className="btn-secondary btn-flex-1"
-            >
+            <button type="button" onClick={handleHideForm} className="btn-secondary btn-flex-1">
               取消
             </button>
             <button type="submit" className="btn-primary btn-flex-1">

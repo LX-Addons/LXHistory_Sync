@@ -18,11 +18,7 @@ import { ErrorBoundary } from '~components/ErrorBoundary'
 import SkeletonLoader from '~components/SkeletonLoader'
 import { DateGroupItem, DomainGroupItem } from '~components/popup'
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from '~store'
-import {
-  extractDomain,
-  applyTheme,
-  ensureHostPermission,
-} from '~common/utils'
+import { extractDomain, applyTheme, ensureHostPermission } from '~common/utils'
 import { Logger } from '~common/logger'
 import './style.css'
 
