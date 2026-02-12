@@ -681,7 +681,7 @@ async function prepareUploadContent(
 }
 
 function handleHttpError(response: Response): CloudSyncResult {
-  let errorMessage: string | undefined = '同步失败'
+  let errorMessage: string | undefined
   switch (response.status) {
     case 401:
       errorMessage = '认证失败，请检查用户名和密码'
