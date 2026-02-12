@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { IconSourceType } from '~common/types'
 import { getDomainFaviconUrl, getLetterIcon } from '~common/utils'
 
@@ -9,6 +9,10 @@ interface DomainIconProps {
 
 const DomainIcon: React.FC<DomainIconProps> = ({ domain, iconSource }) => {
   const [hasError, setHasError] = useState(false)
+
+  useEffect(() => {
+    setHasError(false)
+  }, [domain, iconSource])
 
   if (iconSource === 'letter') {
     return <span>{getLetterIcon(domain)}</span>
