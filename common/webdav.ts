@@ -706,7 +706,7 @@ function handleHttpError(response: Response): CloudSyncResult {
   return {
     success: false,
     error: errorMessage,
-    message: errorMessage || '同步失败',
+    message: errorMessage,
     recovery: recovery.actions,
   }
 }
