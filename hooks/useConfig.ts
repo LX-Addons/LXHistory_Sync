@@ -2,45 +2,10 @@ import { useState, useEffect } from 'react'
 import { Storage } from '@plasmohq/storage'
 import type { WebDAVConfig } from '~common/types'
 import { getMasterKey, encryptData, decryptData } from '~common/webdav'
-import { STATUS_CLEAR_DELAY } from '~common/utils'
+import { STATUS_CLEAR_DELAY, ensureHostPermission } from '~common/utils'
 import { Logger } from '~common/logger'
 
 const storage = new Storage()
-
-function extractOrigin(url: string): string | null {
-  try {
-    const urlObj = new URL(url)
-    return urlObj.origin + '/*'
-  } catch {
-    return null
-  }
-}
-
-async function requestHostPermission(url: string): Promise<boolean> {
-  const origin = extractOrigin(url)
-  if (!origin) {
-    return false
-  }
-
-  try {
-    const hasPermission = await chrome.permissions.contains({
-      origins: [origin],
-    })
-
-    if (hasPermission) {
-      return true
-    }
-
-    const granted = await chrome.permissions.request({
-      origins: [origin],
-    })
-
-    return granted
-  } catch (error) {
-    Logger.error('Failed to request host permission', error)
-    return false
-  }
-}
 
 export function useConfig() {
   const [config, setConfig] = useState<WebDAVConfig>({
@@ -95,7 +60,7 @@ export function useConfig() {
     setStatus('正在保存...')
     try {
       if (config.url) {
-        const permissionGranted = await requestHostPermission(config.url)
+        const permissionGranted = await ensureHostPermission(config.url)
         if (!permissionGranted) {
           setStatus('需要授权访问 WebDAV 服务器')
           setTimeout(() => {

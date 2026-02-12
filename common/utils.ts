@@ -1,7 +1,43 @@
 import type { CheckboxStyleType, IconSourceType, ThemeType } from './types'
+import { Logger } from './logger'
 
 export const APP_NAME = 'LXHistory_Sync'
 export const STATUS_CLEAR_DELAY = 3000
+
+export function extractOrigin(url: string): string | null {
+  try {
+    const urlObj = new URL(url)
+    return urlObj.origin + '/*'
+  } catch {
+    return null
+  }
+}
+
+export async function ensureHostPermission(url: string): Promise<boolean> {
+  const origin = extractOrigin(url)
+  if (!origin) {
+    return false
+  }
+
+  try {
+    const hasPermission = await chrome.permissions.contains({
+      origins: [origin],
+    })
+
+    if (hasPermission) {
+      return true
+    }
+
+    const granted = await chrome.permissions.request({
+      origins: [origin],
+    })
+
+    return granted
+  } catch (error) {
+    Logger.error('Failed to request host permission', error)
+    return false
+  }
+}
 
 export function getCheckboxClassName(style: CheckboxStyleType): string {
   switch (style) {

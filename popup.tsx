@@ -16,44 +16,15 @@ import HistoryItemComponent from '~components/HistoryItem'
 import SyncStatus from '~components/SyncStatus'
 import { ErrorBoundary } from '~components/ErrorBoundary'
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from '~store'
-import { extractDomain, applyTheme, getDomainFaviconUrl, getLetterIcon } from '~common/utils'
+import {
+  extractDomain,
+  applyTheme,
+  getDomainFaviconUrl,
+  getLetterIcon,
+  ensureHostPermission,
+} from '~common/utils'
 import { Logger } from '~common/logger'
 import './style.css'
-
-function extractOrigin(url: string): string | null {
-  try {
-    const urlObj = new URL(url)
-    return urlObj.origin + '/*'
-  } catch {
-    return null
-  }
-}
-
-async function ensureHostPermission(url: string): Promise<boolean> {
-  const origin = extractOrigin(url)
-  if (!origin) {
-    return false
-  }
-
-  try {
-    const hasPermission = await chrome.permissions.contains({
-      origins: [origin],
-    })
-
-    if (hasPermission) {
-      return true
-    }
-
-    const granted = await chrome.permissions.request({
-      origins: [origin],
-    })
-
-    return granted
-  } catch (error) {
-    Logger.error('Failed to request host permission', error)
-    return false
-  }
-}
 
 interface GroupedHistoryItem {
   id: string
