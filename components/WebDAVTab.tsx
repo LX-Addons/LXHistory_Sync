@@ -4,6 +4,42 @@ import { useConfig } from '~hooks/useConfig'
 import { useGeneralConfig } from '~hooks/useGeneralConfig'
 import { testWebDAVConnection } from '~common/webdav'
 import StatusMessage from '~components/StatusMessage'
+import { Logger } from '~common/logger'
+
+function extractOrigin(url: string): string | null {
+  try {
+    const urlObj = new URL(url)
+    return urlObj.origin + '/*'
+  } catch {
+    return null
+  }
+}
+
+async function ensureHostPermission(url: string): Promise<boolean> {
+  const origin = extractOrigin(url)
+  if (!origin) {
+    return false
+  }
+
+  try {
+    const hasPermission = await chrome.permissions.contains({
+      origins: [origin],
+    })
+
+    if (hasPermission) {
+      return true
+    }
+
+    const granted = await chrome.permissions.request({
+      origins: [origin],
+    })
+
+    return granted
+  } catch (error) {
+    Logger.error('Failed to request host permission', error)
+    return false
+  }
+}
 
 export default function WebDAVTab() {
   const { config, setConfig, status, handleSave } = useConfig()
@@ -17,6 +53,15 @@ export default function WebDAVTab() {
     if (!config.url || !config.username || !config.password) {
       setTestStatus({
         message: '请先填写完整的 WebDAV 配置',
+        type: 'error',
+      })
+      return
+    }
+
+    const permissionGranted = await ensureHostPermission(config.url)
+    if (!permissionGranted) {
+      setTestStatus({
+        message: '需要授权访问 WebDAV 服务器',
         type: 'error',
       })
       return

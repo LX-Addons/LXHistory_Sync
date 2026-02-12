@@ -20,6 +20,41 @@ import { extractDomain, applyTheme, getDomainFaviconUrl, getLetterIcon } from '~
 import { Logger } from '~common/logger'
 import './style.css'
 
+function extractOrigin(url: string): string | null {
+  try {
+    const urlObj = new URL(url)
+    return urlObj.origin + '/*'
+  } catch {
+    return null
+  }
+}
+
+async function ensureHostPermission(url: string): Promise<boolean> {
+  const origin = extractOrigin(url)
+  if (!origin) {
+    return false
+  }
+
+  try {
+    const hasPermission = await chrome.permissions.contains({
+      origins: [origin],
+    })
+
+    if (hasPermission) {
+      return true
+    }
+
+    const granted = await chrome.permissions.request({
+      origins: [origin],
+    })
+
+    return granted
+  } catch (error) {
+    Logger.error('Failed to request host permission', error)
+    return false
+  }
+}
+
 interface GroupedHistoryItem {
   id: string
   type: 'item' | 'date' | 'domain'
@@ -300,10 +335,21 @@ const Popup: React.FC = () => {
 
   const handleSyncToCloud = async () => {
     if (isSyncing) return
+
+    if (webdavConfig?.url) {
+      const permissionGranted = await ensureHostPermission(webdavConfig.url)
+      if (!permissionGranted) {
+        setSyncStatus({
+          message: '需要授权访问 WebDAV 服务器',
+          type: 'error',
+        })
+        return
+      }
+    }
+
     setIsSyncing(true)
     setSyncStatus({ message: '正在同步到云端...', type: 'info' })
     try {
-      // Use allHistoryItems instead of historyItems to avoid syncing filtered data
       const rawHistoryItems = allHistoryItems
         .filter(item => item.type === 'item')
         .map(item => item.data as HistoryItemType)
@@ -333,6 +379,18 @@ const Popup: React.FC = () => {
 
   const handleSyncFromCloud = async () => {
     if (isSyncing) return
+
+    if (webdavConfig?.url) {
+      const permissionGranted = await ensureHostPermission(webdavConfig.url)
+      if (!permissionGranted) {
+        setSyncStatus({
+          message: '需要授权访问 WebDAV 服务器',
+          type: 'error',
+        })
+        return
+      }
+    }
+
     setIsSyncing(true)
     setSyncStatus({ message: '正在从云端同步...', type: 'info' })
     try {
