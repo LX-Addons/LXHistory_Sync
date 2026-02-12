@@ -16,7 +16,13 @@ import HistoryItemComponent from '~components/HistoryItem'
 import SyncStatus from '~components/SyncStatus'
 import { ErrorBoundary } from '~components/ErrorBoundary'
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from '~store'
-import { extractDomain, applyTheme, getDomainFaviconUrl, getLetterIcon } from '~common/utils'
+import {
+  extractDomain,
+  applyTheme,
+  getDomainFaviconUrl,
+  getLetterIcon,
+  ensureHostPermission,
+} from '~common/utils'
 import { Logger } from '~common/logger'
 import './style.css'
 
@@ -300,10 +306,21 @@ const Popup: React.FC = () => {
 
   const handleSyncToCloud = async () => {
     if (isSyncing) return
+
+    if (webdavConfig?.url) {
+      const permissionGranted = await ensureHostPermission(webdavConfig.url)
+      if (!permissionGranted) {
+        setSyncStatus({
+          message: '需要授权访问 WebDAV 服务器',
+          type: 'error',
+        })
+        return
+      }
+    }
+
     setIsSyncing(true)
     setSyncStatus({ message: '正在同步到云端...', type: 'info' })
     try {
-      // Use allHistoryItems instead of historyItems to avoid syncing filtered data
       const rawHistoryItems = allHistoryItems
         .filter(item => item.type === 'item')
         .map(item => item.data as HistoryItemType)
@@ -333,6 +350,18 @@ const Popup: React.FC = () => {
 
   const handleSyncFromCloud = async () => {
     if (isSyncing) return
+
+    if (webdavConfig?.url) {
+      const permissionGranted = await ensureHostPermission(webdavConfig.url)
+      if (!permissionGranted) {
+        setSyncStatus({
+          message: '需要授权访问 WebDAV 服务器',
+          type: 'error',
+        })
+        return
+      }
+    }
+
     setIsSyncing(true)
     setSyncStatus({ message: '正在从云端同步...', type: 'info' })
     try {
