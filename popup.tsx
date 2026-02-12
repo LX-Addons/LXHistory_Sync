@@ -119,6 +119,7 @@ const Popup: React.FC = () => {
     ...DEFAULT_GENERAL_CONFIG,
     checkboxStyle: DEFAULT_GENERAL_CONFIG.checkboxStyle as CheckboxStyleType,
     iconSource: DEFAULT_GENERAL_CONFIG.iconSource as IconSourceType,
+    maxHistoryItems: DEFAULT_GENERAL_CONFIG.maxHistoryItems,
   })
   const [webdavConfig] = useStorage<WebDAVConfig | null>('webdav_config', null)
   const [expandedDomains, setExpandedDomains] = useState<Set<string>>(new Set())

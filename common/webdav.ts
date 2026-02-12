@@ -810,10 +810,10 @@ async function getValidatedConfig(): Promise<WebDAVConfig> {
 
   if (masterKey) {
     const config = await loadConfigForSync(masterKey)
-    if (!config) {
-      throwConfigError('配置未设置或无效')
+    if (config) {
+      return config
     }
-    return config!
+    throwConfigError('配置未设置或无效')
   }
 
   const storedConfig = await getConfig()

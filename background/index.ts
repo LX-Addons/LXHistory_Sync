@@ -28,6 +28,14 @@ export async function performScheduledSync() {
       return
     }
 
+    const masterPasswordData = await storage.get<{ hash: string; salt: string }>(
+      'master_password_data'
+    )
+    if (masterPasswordData?.hash) {
+      Logger.warn('Auto sync is not available when master password is set')
+      return
+    }
+
     const webDavConfig = await storage.get<WebDAVConfig>('webdav_config')
     const { url, username, password } = webDavConfig || {}
 
@@ -37,9 +45,8 @@ export async function performScheduledSync() {
     }
 
     const historyItems = await getLocalHistory()
-    const rawHistoryItems = historyItems.map(item => item)
 
-    const result = await syncToCloud(rawHistoryItems)
+    const result = await syncToCloud(historyItems)
     Logger.info('Scheduled sync completed', result)
 
     if (result.success) {

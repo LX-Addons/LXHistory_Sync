@@ -24,10 +24,15 @@ describe('DEFAULT_GENERAL_CONFIG', () => {
     expect(DEFAULT_GENERAL_CONFIG.iconSource).toBe('letter')
     expect(DEFAULT_GENERAL_CONFIG.autoSyncEnabled).toBe(false)
     expect(DEFAULT_GENERAL_CONFIG.syncInterval).toBe(3600000)
+    expect(DEFAULT_GENERAL_CONFIG.maxHistoryItems).toBe(1000)
   })
 
   it('syncInterval 应该是一小时（毫秒）', () => {
     expect(DEFAULT_GENERAL_CONFIG.syncInterval).toBe(60 * 60 * 1000)
+  })
+
+  it('maxHistoryItems 默认应该是 1000', () => {
+    expect(DEFAULT_GENERAL_CONFIG.maxHistoryItems).toBe(1000)
   })
 })
 

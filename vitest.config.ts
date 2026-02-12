@@ -17,6 +17,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '~': path.resolve(__dirname, './'),
+      '~store': path.resolve(__dirname, './store.ts'),
+      '~common': path.resolve(__dirname, './common'),
+      '~components': path.resolve(__dirname, './components'),
+      '~hooks': path.resolve(__dirname, './hooks'),
     },
   },
 })

@@ -13,6 +13,7 @@ export const DEFAULT_GENERAL_CONFIG = {
   iconSource: 'letter',
   autoSyncEnabled: false,
   syncInterval: 3600000,
+  maxHistoryItems: 1000,
 }
 
 export const DEFAULT_THEME_CONFIG = {
