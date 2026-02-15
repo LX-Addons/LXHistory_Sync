@@ -93,6 +93,10 @@ const Popup: React.FC = () => {
   }, [themeConfig])
 
   useEffect(() => {
+    applyTheme('auto')
+  }, [])
+
+  useEffect(() => {
     if (debouncedSearchQuery.trim() === '') {
       setHistoryItems(allHistoryItems)
     } else {

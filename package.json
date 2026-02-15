@@ -72,7 +72,6 @@
     "permissions": [
       "history",
       "storage",
-      "permissions",
       "alarms"
     ],
     "optional_host_permissions": [
