@@ -3,29 +3,20 @@ import WebDAVTab from '~components/WebDAVTab'
 import ThemeTab from '~components/ThemeTab'
 import GeneralTab from '~components/GeneralTab'
 import SecurityTab from '~components/SecurityTab'
+import SyncHistoryTab from '~components/SyncHistoryTab'
 import { ErrorBoundary } from '~components/ErrorBoundary'
 import { useTheme } from '~hooks/useTheme'
+import { applyTheme } from '~common/utils'
 import './style.css'
 
-type TabType = 'webdav' | 'theme' | 'general' | 'security'
+type TabType = 'webdav' | 'theme' | 'general' | 'security' | 'sync_history'
 
 const Options: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('webdav')
   const { themeConfig } = useTheme()
 
   useEffect(() => {
-    const root = document.documentElement
-    const isDarkMode =
-      themeConfig.theme === 'dark' ||
-      (themeConfig.theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-
-    if (isDarkMode) {
-      root.classList.add('dark-theme')
-      root.classList.remove('light-theme')
-    } else {
-      root.classList.add('light-theme')
-      root.classList.remove('dark-theme')
-    }
+    applyTheme(themeConfig.theme)
   }, [themeConfig])
   return (
     <ErrorBoundary>
@@ -58,8 +49,16 @@ const Options: React.FC = () => {
                 <button
                   className={`tab-button ${activeTab === 'security' ? 'active' : ''}`}
                   onClick={() => setActiveTab('security')}
+                  data-tab="security"
                 >
                   安全设置
+                </button>
+                <button
+                  className={`tab-button ${activeTab === 'sync_history' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('sync_history')}
+                  data-tab="sync_history"
+                >
+                  同步历史
                 </button>
               </div>
             </div>
@@ -68,6 +67,7 @@ const Options: React.FC = () => {
               {activeTab === 'theme' && <ThemeTab />}
               {activeTab === 'general' && <GeneralTab />}
               {activeTab === 'security' && <SecurityTab />}
+              {activeTab === 'sync_history' && <SyncHistoryTab />}
             </div>
           </div>
         </div>

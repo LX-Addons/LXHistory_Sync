@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useDebounce } from 'use-debounce'
 import { useStorage } from '@plasmohq/storage/hook'
+import type { PlasmoMessaging } from '@plasmohq/messaging'
 import { Virtuoso } from 'react-virtuoso'
 import type {
   HistoryItem as HistoryItemType,
@@ -10,19 +11,34 @@ import type {
   IconSourceType,
   WebDAVConfig,
 } from '~common/types'
-import { getLocalHistory } from '~common/history'
-import { syncToCloud, syncFromCloud } from '~common/webdav'
 import HistoryItemComponent from '~components/HistoryItem'
 import SyncStatus from '~components/SyncStatus'
+import SyncProgress from '~components/SyncProgress'
 import { ErrorBoundary } from '~components/ErrorBoundary'
 import SkeletonLoader from '~components/SkeletonLoader'
 import { DateGroupItem, DomainGroupItem } from '~components/popup'
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from '~store'
 import { extractDomain, applyTheme, ensureHostPermission } from '~common/utils'
 import { Logger } from '~common/logger'
+import type { HistoryItem } from '~common/types'
 import './style.css'
 
 const SEARCH_DEBOUNCE_MS = 300
+
+interface HistoryRequestBody {
+  action: 'GET_HISTORY' | 'SYNC_TO_CLOUD' | 'SYNC_FROM_CLOUD'
+}
+
+interface HistoryResponse {
+  success: boolean
+  data?: HistoryItem[]
+  error?: string
+}
+
+const sendToBackgroundMessage: PlasmoMessaging.SendFx<string> = async request => {
+  const { sendToBackground } = await import('@plasmohq/messaging')
+  return sendToBackground(request as Parameters<typeof sendToBackground>[0])
+}
 
 interface GroupedHistoryItem {
   id: string
@@ -219,11 +235,18 @@ const Popup: React.FC = () => {
     setIsLoading(true)
     try {
       Logger.info('Loading history...')
-      const items = await getLocalHistory()
-      Logger.info(`Loaded ${items.length} history items`)
-      const groupedItems = groupHistoryByDate(items)
-      setAllHistoryItems(groupedItems)
-      setHistoryItems(groupedItems)
+      const response = await sendToBackgroundMessage<HistoryRequestBody, HistoryResponse>({
+        name: 'history',
+        body: { action: 'GET_HISTORY' },
+      })
+      if (response.success && response.data) {
+        Logger.info(`Loaded ${response.data.length} history items`)
+        const groupedItems = groupHistoryByDate(response.data)
+        setAllHistoryItems(groupedItems)
+        setHistoryItems(groupedItems)
+      } else {
+        throw new Error(response.error || 'Failed to load history')
+      }
     } catch (error) {
       Logger.error('Failed to load history', error)
       setSyncStatus({
@@ -252,19 +275,18 @@ const Popup: React.FC = () => {
     setIsSyncing(true)
     setSyncStatus({ message: '正在同步到云端...', type: 'info' })
     try {
-      const rawHistoryItems = allHistoryItems
-        .filter(item => item.type === 'item')
-        .map(item => item.data as HistoryItemType)
-
-      const result = await syncToCloud(rawHistoryItems)
-      if (result.success) {
+      const response = await sendToBackgroundMessage<HistoryRequestBody, HistoryResponse>({
+        name: 'history',
+        body: { action: 'SYNC_TO_CLOUD' },
+      })
+      if (response.success) {
         setSyncStatus({
-          message: result.message || '同步到云端成功！已合并数据。',
+          message: '同步到云端成功！已合并数据。',
           type: 'success',
         })
       } else {
         setSyncStatus({
-          message: result.error || '同步失败',
+          message: response.error || '同步失败',
           type: 'error',
         })
       }
@@ -296,14 +318,21 @@ const Popup: React.FC = () => {
     setIsSyncing(true)
     setSyncStatus({ message: '正在从云端同步...', type: 'info' })
     try {
-      const remoteItems = await syncFromCloud()
-      const groupedItems = groupHistoryByDate(remoteItems)
-      setAllHistoryItems(groupedItems)
-      setHistoryItems(groupedItems)
-      setSyncStatus({
-        message: `从云端同步成功！获取到 ${remoteItems.length} 条记录。`,
-        type: 'success',
+      const response = await sendToBackgroundMessage<HistoryRequestBody, HistoryResponse>({
+        name: 'history',
+        body: { action: 'SYNC_FROM_CLOUD' },
       })
+      if (response.success && response.data) {
+        const groupedItems = groupHistoryByDate(response.data)
+        setAllHistoryItems(groupedItems)
+        setHistoryItems(groupedItems)
+        setSyncStatus({
+          message: `从云端同步成功！获取到 ${response.data.length} 条记录。`,
+          type: 'success',
+        })
+      } else {
+        throw new Error(response.error || '同步失败')
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '同步失败'
       setSyncStatus({ message: errorMessage, type: 'error' })
@@ -333,19 +362,29 @@ const Popup: React.FC = () => {
 
           {hasWebDAVConfig && (
             <div className="sync-buttons-container">
-              <div className="button-group">
-                <button className="btn-primary" onClick={handleSyncToCloud} disabled={isSyncing}>
-                  {isSyncing ? '同步中...' : '同步到云端'}
-                </button>
-                <button
-                  className="btn-secondary"
-                  onClick={handleSyncFromCloud}
-                  disabled={isSyncing}
-                >
-                  {isSyncing ? '同步中...' : '从云端同步'}
-                </button>
-              </div>
-              <SyncStatus status={syncStatus} />
+              {isSyncing ? (
+                <SyncProgress isSyncing={isSyncing} message={syncStatus?.message} />
+              ) : (
+                <>
+                  <div className="button-group">
+                    <button
+                      className="btn-primary"
+                      onClick={handleSyncToCloud}
+                      disabled={isSyncing}
+                    >
+                      同步到云端
+                    </button>
+                    <button
+                      className="btn-secondary"
+                      onClick={handleSyncFromCloud}
+                      disabled={isSyncing}
+                    >
+                      从云端同步
+                    </button>
+                  </div>
+                  <SyncStatus status={syncStatus} />
+                </>
+              )}
             </div>
           )}
 

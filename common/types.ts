@@ -6,12 +6,7 @@ export interface HistoryItem {
   visitCount: number
 }
 
-export type EncryptionType =
-  | 'none'
-  | 'aes-256-cbc'
-  | 'aes-256-gcm'
-  | 'aes-256-ctr'
-  | 'chacha20-poly1305'
+export type EncryptionType = 'aes-256-cbc' | 'aes-256-gcm' | 'aes-256-ctr' | 'chacha20-poly1305'
 
 export type KeyStrength = 'weak' | 'medium' | 'strong'
 
@@ -68,6 +63,14 @@ export interface GeneralConfig {
   maxHistoryItems: number
 }
 
+export interface MergeResult {
+  totalItems: number
+  localOnly: number
+  remoteOnly: number
+  updated: number
+  items: HistoryItem[]
+}
+
 export interface HistoryItemProps {
   item: HistoryItem
   onClick?: (item: HistoryItem) => void
@@ -83,4 +86,29 @@ export interface ConfigFormProps {
   onConfigChange: (config: WebDAVConfig) => void
   onSubmit: (e: React.FormEvent) => void
   checkboxStyle?: CheckboxStyleType
+}
+
+export type SyncDirection = 'to_cloud' | 'from_cloud'
+
+export interface SyncHistoryEntry {
+  id: string
+  timestamp: number
+  direction: SyncDirection
+  success: boolean
+  itemCount?: number
+  errorMessage?: string
+}
+
+export interface SyncHistoryConfig {
+  entries: SyncHistoryEntry[]
+  maxEntries: number
+}
+
+export type ExportFormat = 'json' | 'csv'
+
+export interface ExportResult {
+  success: boolean
+  data?: string
+  filename?: string
+  error?: string
 }
