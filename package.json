@@ -65,6 +65,9 @@
     "typescript-eslint": "^7.18.0",
     "vitest": "^4.0.18"
   },
+  "overrides": {
+    "msgpackr": ">=1.10.1"
+  },
   "manifest": {
     "permissions": [
       "history",
