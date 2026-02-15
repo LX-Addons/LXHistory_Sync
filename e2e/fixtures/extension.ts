@@ -1,5 +1,6 @@
 import type { BrowserContext } from '@playwright/test'
 import path from 'path'
+import fs from 'fs'
 
 export async function getExtensionId(context: BrowserContext): Promise<string> {
   let [background] = context.serviceWorkers()
@@ -58,5 +59,22 @@ export async function getExtensionId(context: BrowserContext): Promise<string> {
 }
 
 export function getExtensionPath(): string {
-  return path.join(__dirname, '../../build/chrome-mv3-dev')
+  const buildDir = path.join(__dirname, '../../build')
+
+  const possiblePaths = [
+    path.join(buildDir, 'chrome-mv3-prod'),
+    path.join(buildDir, 'chrome-mv3-dev'),
+  ]
+
+  for (const extPath of possiblePaths) {
+    const manifestPath = path.join(extPath, 'manifest.json')
+    if (fs.existsSync(manifestPath)) {
+      console.log('Found extension at:', extPath)
+      return extPath
+    }
+  }
+
+  throw new Error(
+    `Extension not found. Checked paths: ${possiblePaths.join(', ')}. Please run 'npm run build' first.`
+  )
 }

@@ -4,6 +4,9 @@
   "version": "1.1.0",
   "description": "LXHistory_Sync - WebDAV 历史记录同步扩展",
   "packageManager": "npm@10.0.0",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "plasmo dev",
     "build": "plasmo build",
@@ -18,7 +21,17 @@
     "test:unit:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test": "npm run test:unit && npm run test:e2e"
+    "test": "npm run test:unit && npm run test:e2e",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,css}": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "@plasmohq/messaging": "^0.6.0",
@@ -30,6 +43,8 @@
     "use-debounce": "^10.1.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.4.1",
+    "@commitlint/config-conventional": "^20.4.1",
     "@playwright/test": "^1.58.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -41,7 +56,10 @@
     "@vitest/ui": "^4.0.18",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "happy-dom": "^20.6.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "prettier": "^3.8.1",
     "typescript": "5.3.3",
     "typescript-eslint": "^7.18.0",

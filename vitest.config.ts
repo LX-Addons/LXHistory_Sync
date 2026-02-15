@@ -18,6 +18,12 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['lcov', 'text'],
       reportsDirectory: coverageDir,
+      thresholds: {
+        lines: 75,
+        functions: 80,
+        branches: 70,
+        statements: 75,
+      },
       exclude: [
         'node_modules/**',
         'build/**',
@@ -27,6 +33,10 @@ export default defineConfig({
         '**/vitest.config.ts',
         '**/vitest.setup.ts',
         '**/playwright.config.ts',
+        '**/eslint.config.mjs',
+        'coverage/**',
+        'test-results/**',
+        'e2e/**',
       ],
     },
   },

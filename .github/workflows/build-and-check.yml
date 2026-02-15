@@ -40,12 +40,7 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: |
-          if [ -f "package-lock.json" ]; then
-            npm ci
-          else
-            npm install
-          fi
+        run: npm install
 
       - name: Dependency audit
         run: npm audit --production || true
@@ -95,7 +90,6 @@ jobs:
 
       - name: Build extension
         run: |
-          # Clean and rebuild
           rm -rf .plasmo build
           npm run build:ci
         env:
@@ -108,7 +102,6 @@ jobs:
             echo "✗ Build directory not found"
             exit 1
           fi
-          # Find production build directory (flexible for different plasmo configs)
           PROD_BUILD=$(find build -type d -name "chrome-mv3-prod" -o -name "*-mv3-prod" | head -1)
           if [ -z "$PROD_BUILD" ]; then
             echo "✗ Production build directory not found"
@@ -147,7 +140,6 @@ jobs:
           BUILD_DIR="${{ steps.get_version.outputs.build_dir }}"
           ZIP_FILE="${{ steps.get_version.outputs.zip_file }}"
 
-          # Use temp directory for all release operations
           TEMP_DIR=$(mktemp -d)
           echo "temp_dir=$TEMP_DIR" >> $GITHUB_ENV
 
@@ -164,7 +156,6 @@ jobs:
             echo "✓ Copied zip to temp directory: $TEMP_DIR/$ZIP_FILE"
           fi
 
-          # Store paths for release step
           echo "release_build_dir=$TEMP_DIR/$BUILD_DIR" >> $GITHUB_ENV
           echo "release_zip_file=$TEMP_DIR/$ZIP_FILE" >> $GITHUB_ENV
 
@@ -214,10 +205,8 @@ jobs:
           VERSION="${{ steps.get_version.outputs.version }}"
           TEMP_DIR="${{ env.temp_dir }}"
 
-          # Get the last tag
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
-          # Initialize categories
           declare -A categories
           categories=(
             ["feat"]="✨ Features"
@@ -233,12 +222,10 @@ jobs:
             ["other"]="📝 Other Changes"
           )
 
-          # Create temp files for each category
           for key in "${!categories[@]}"; do
             touch "$TEMP_DIR/commits_$key.txt"
           done
 
-          # Get commits and categorize them
           if [ -z "$LAST_TAG" ]; then
             COMMITS=$(git log --pretty=format:"%s|%h" 2>/dev/null)
             echo "## 🎉 First Release v$VERSION" > $TEMP_DIR/RELEASE_NOTES.md
@@ -251,11 +238,9 @@ jobs:
 
           echo "" >> $TEMP_DIR/RELEASE_NOTES.md
 
-          # Parse and categorize commits
           while IFS='|' read -r message hash; do
             [ -z "$message" ] && continue
 
-            # Extract type and description
             if [[ $message =~ ^([a-z]+)(\(.+\))?!?:[[:space:]]*(.+)$ ]]; then
               type="${BASH_REMATCH[1]}"
               desc="${BASH_REMATCH[3]}"
@@ -264,7 +249,6 @@ jobs:
               desc="$message"
             fi
 
-            # Map conventional commit types to categories
             case "$type" in
               feat|feature) category="feat" ;;
               fix|bugfix|hotfix) category="fix" ;;
@@ -282,7 +266,6 @@ jobs:
             echo "- $desc (${hash:0:7})" >> "$TEMP_DIR/commits_$category.txt"
           done <<< "$COMMITS"
 
-          # Write categorized commits to release notes (only non-empty categories)
           has_changes=false
           for key in feat fix refactor perf docs style test chore ci build other; do
             if [ -s "$TEMP_DIR/commits_$key.txt" ]; then
@@ -294,13 +277,11 @@ jobs:
             fi
           done
 
-          # If no categorized changes found
           if [ "$has_changes" = false ]; then
             echo "*No significant changes in this release.*" >> $TEMP_DIR/RELEASE_NOTES.md
             echo "" >> $TEMP_DIR/RELEASE_NOTES.md
           fi
 
-          # Add installation section (only for non-patch releases or first release)
           if [ -z "$LAST_TAG" ] || [[ ! "$VERSION" =~ \.[0-9]+$ ]]; then
             {
               echo "## 📦 Installation"
@@ -320,7 +301,6 @@ jobs:
             } >> $TEMP_DIR/RELEASE_NOTES.md
           fi
 
-          # Add files section
           {
             echo ""
             echo "## 📄 Files"
@@ -389,12 +369,10 @@ jobs:
           NOTES_FILE="${{ steps.release_notes.outputs.notes_file }}"
           ZIP_FILE="${{ env.release_zip_file }}"
 
-          # Generate tag and title based on release type
           if [ "$RELEASE_TYPE" == "production" ]; then
             TAG_NAME="v${VERSION}"
             RELEASE_TITLE="🚀 Release v${VERSION}"
           else
-            # Test release: add timestamp to tag
             TIMESTAMP=$(date +%Y%m%d%H%M%S)
             TAG_NAME="v${VERSION}-test-${TIMESTAMP}"
             RELEASE_TITLE="🧪 Test Release v${VERSION} (${TIMESTAMP})"
@@ -411,7 +389,6 @@ jobs:
           else
             echo "📦 Creating $RELEASE_TYPE release: $TAG_NAME"
 
-            # Add release type notice to notes
             if [ "$RELEASE_TYPE" == "test" ]; then
               echo "" >> $NOTES_FILE
               echo "---" >> $NOTES_FILE
@@ -427,7 +404,6 @@ jobs:
               echo "> - Branch: ${{ github.ref_name }}" >> $NOTES_FILE
             fi
 
-            # Create release with appropriate flags
             if [ "$PRERELEASE" == "true" ] || [ "$RELEASE_TYPE" == "test" ]; then
               gh release create "$TAG_NAME" \
                 --title "$RELEASE_TITLE" \
@@ -504,18 +480,13 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: |
-          if [ -f "package-lock.json" ]; then
-            npm ci
-          else
-            npm install
-          fi
+        run: npm install
 
       - name: Run unit tests with coverage
         run: npm run test:unit -- --coverage
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: /tmp/coverage/lcov.info
@@ -546,12 +517,7 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: |
-          if [ -f "package-lock.json" ]; then
-            npm ci
-          else
-            npm install
-          fi
+        run: npm install
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
