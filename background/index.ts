@@ -5,10 +5,10 @@ import { Logger } from '~common/logger'
 import type { GeneralConfig, WebDAVConfig } from '~common/types'
 
 const storage = new Storage()
-let syncInterval: number | null = null
-const DEFAULT_SYNC_INTERVAL = 60 * 60 * 1000
+const DEFAULT_SYNC_INTERVAL = 60
+const KEEPALIVE_ALARM_NAME = 'keepalive'
+const SYNC_ALARM_NAME = 'sync'
 let isSyncing = false
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 export async function performScheduledSync() {
   if (isSyncing) {
@@ -59,31 +59,39 @@ export async function performScheduledSync() {
   }
 }
 
-export function startSyncTimer() {
-  clearSyncTimer()
+export async function setupAlarms() {
+  const settings = await storage.get<GeneralConfig>('general_config')
+  const syncEnabled = settings?.autoSyncEnabled ?? false
+  const intervalMinutes = settings?.syncInterval
+    ? Math.floor(settings.syncInterval / 60000)
+    : DEFAULT_SYNC_INTERVAL
 
-  if (debounceTimer) {
-    clearTimeout(debounceTimer)
+  try {
+    await chrome.alarms.clear(KEEPALIVE_ALARM_NAME)
+    await chrome.alarms.clear(SYNC_ALARM_NAME)
+  } catch (error) {
+    Logger.warn('Failed to clear existing alarms', error)
   }
 
-  debounceTimer = setTimeout(async () => {
-    const settings = await storage.get<GeneralConfig>('general_config')
-    const interval = settings?.syncInterval ?? DEFAULT_SYNC_INTERVAL
-    const syncEnabled = settings?.autoSyncEnabled ?? false
+  chrome.alarms.create(KEEPALIVE_ALARM_NAME, {
+    periodInMinutes: 0.5,
+  })
 
-    if (syncEnabled) {
-      Logger.info(`Starting sync timer with interval ${interval}ms`)
-      syncInterval = self.setInterval(performScheduledSync, interval)
-    }
-  }, 500)
-}
-
-function clearSyncTimer() {
-  if (syncInterval !== null) {
-    clearInterval(syncInterval)
-    syncInterval = null
+  if (syncEnabled) {
+    Logger.info(`Setting up sync alarm with interval ${intervalMinutes} minutes`)
+    chrome.alarms.create(SYNC_ALARM_NAME, {
+      periodInMinutes: Math.max(1, intervalMinutes),
+    })
   }
 }
+
+chrome.alarms.onAlarm.addListener(async alarm => {
+  if (alarm.name === KEEPALIVE_ALARM_NAME) {
+    Logger.debug('Keepalive alarm triggered')
+  } else if (alarm.name === SYNC_ALARM_NAME) {
+    await performScheduledSync()
+  }
+})
 
 self.addEventListener('install', () => {
   Logger.info('Service Worker installed')
@@ -91,16 +99,13 @@ self.addEventListener('install', () => {
 
 self.addEventListener('activate', () => {
   Logger.info('Service Worker activated')
-  startSyncTimer()
-
+  setupAlarms()
   performScheduledSync()
 })
 
 storage.watch({
-  callback: changes => {
-    if (changes.newValue !== undefined || changes.oldValue !== undefined) {
-      Logger.info('Settings changed, restarting sync timer')
-      startSyncTimer()
-    }
+  general_config: () => {
+    Logger.info('Settings changed, restarting sync timer')
+    setupAlarms()
   },
 })

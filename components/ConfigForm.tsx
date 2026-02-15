@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import type { WebDAVConfig, EncryptionType, CheckboxStyleType, KeyStrength } from '~common/types'
 import { validateUrl, validatePassword, validateEncryptionKey } from '~common/webdav'
 import { getCheckboxClassName } from '~common/utils'
+import { useStorage } from '@plasmohq/storage/hook'
 
 interface ConfigFormProps {
   config: WebDAVConfig
@@ -20,6 +21,12 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 }) => {
   const [keyStrength, setKeyStrength] = useState<KeyStrength>('weak')
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  const [masterPasswordData] = useStorage<{ hash: string; salt: string } | null>(
+    'master_password_data',
+    null
+  )
+
+  const hasMasterPassword = !!masterPasswordData?.hash
 
   const getStrengthColor = (strength: KeyStrength): string => {
     switch (strength) {
@@ -125,6 +132,21 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit}>
+      {!hasMasterPassword && (
+        <div
+          className="message message-warning"
+          style={{
+            marginBottom: 'var(--spacing-md)',
+            backgroundColor: '#fff3cd',
+            border: '1px solid #ffc107',
+            color: '#856404',
+            padding: 'var(--spacing-sm) var(--spacing-md)',
+            borderRadius: 'var(--radius-sm)',
+          }}
+        >
+          ⚠️ 未设置主密码，您的 WebDAV 凭证将以明文存储。建议在安全设置中设置主密码。
+        </div>
+      )}
       <div className="form-group">
         <label htmlFor="url">WebDAV 服务器地址:</label>
         <input

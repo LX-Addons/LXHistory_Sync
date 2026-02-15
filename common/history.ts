@@ -1,5 +1,5 @@
 import { Storage } from '@plasmohq/storage'
-import type { HistoryItem, GeneralConfig } from './types'
+import type { HistoryItem, GeneralConfig, MergeResult } from './types'
 import { STORAGE_KEYS, DEFAULT_GENERAL_CONFIG } from '~store'
 import { Logger } from './logger'
 
@@ -46,14 +46,41 @@ export async function getLocalHistory(): Promise<HistoryItem[]> {
   })
 }
 
-export function mergeHistory(local: HistoryItem[], remote: HistoryItem[]): HistoryItem[] {
+export function mergeHistory(local: HistoryItem[], remote: HistoryItem[]): MergeResult {
   const map = new Map<string, HistoryItem>()
+  let localOnly = 0
+  let remoteOnly = 0
+  let updated = 0
+
   local.forEach(item => map.set(item.url, item))
+
   remote.forEach(item => {
     const existing = map.get(item.url)
-    if (!existing || item.lastVisitTime > existing.lastVisitTime) {
+    if (!existing) {
       map.set(item.url, item)
+      remoteOnly++
+    } else {
+      const mergedItem: HistoryItem = {
+        id: existing.id,
+        url: existing.url,
+        title: item.title || existing.title,
+        lastVisitTime: Math.max(existing.lastVisitTime, item.lastVisitTime),
+        visitCount: existing.visitCount + item.visitCount,
+      }
+      map.set(item.url, mergedItem)
+      updated++
     }
   })
-  return Array.from(map.values()).sort((a, b) => b.lastVisitTime - a.lastVisitTime)
+
+  localOnly = local.length - updated
+
+  const items = Array.from(map.values()).sort((a, b) => b.lastVisitTime - a.lastVisitTime)
+
+  return {
+    totalItems: items.length,
+    localOnly,
+    remoteOnly,
+    updated,
+    items,
+  }
 }
