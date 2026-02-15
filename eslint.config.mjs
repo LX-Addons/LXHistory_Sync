@@ -1,6 +1,7 @@
 import tsParser from '@typescript-eslint/parser'
 import tsPlugin from '@typescript-eslint/eslint-plugin'
 import prettierConfig from 'eslint-config-prettier'
+import reactHooksPlugin from 'eslint-plugin-react-hooks'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -16,6 +17,9 @@ export default [
       '.github/**',
       '**/*.d.ts',
       'tsconfig.tsbuildinfo',
+      'coverage/**',
+      'test-results/**',
+      'playwright-report/**',
     ],
   },
   {
@@ -33,6 +37,7 @@ export default [
       },
       globals: {
         chrome: 'readonly',
+        browser: 'readonly',
         document: 'readonly',
         window: 'readonly',
         navigator: 'readonly',
@@ -43,8 +48,10 @@ export default [
         clearInterval: 'readonly',
         fetch: 'readonly',
         URL: 'readonly',
+        URLSearchParams: 'readonly',
         Blob: 'readonly',
         FileReader: 'readonly',
+        File: 'readonly',
         Request: 'readonly',
         Response: 'readonly',
         Headers: 'readonly',
@@ -52,10 +59,25 @@ export default [
         crypto: 'readonly',
         btoa: 'readonly',
         atob: 'readonly',
+        FormData: 'readonly',
+        localStorage: 'readonly',
+        sessionStorage: 'readonly',
+        MutationObserver: 'readonly',
+        IntersectionObserver: 'readonly',
+        ResizeObserver: 'readonly',
+        PerformanceObserver: 'readonly',
+        CustomEvent: 'readonly',
+        Event: 'readonly',
+        EventTarget: 'readonly',
+        AbortController: 'readonly',
+        AbortSignal: 'readonly',
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly',
       },
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
+      'react-hooks': reactHooksPlugin,
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
@@ -66,6 +88,9 @@ export default [
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-non-null-assertion': 'warn',
       '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
+
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
 
       'no-console': ['warn', { allow: ['error', 'warn', 'info', 'log', 'debug'] }],
       'no-debugger': 'error',
