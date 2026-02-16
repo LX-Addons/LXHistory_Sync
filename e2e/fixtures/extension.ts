@@ -7,59 +7,49 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 export async function getExtensionId(context: BrowserContext): Promise<string> {
-  let [background] = context.serviceWorkers()
-  if (background) {
-    const url = background.url()
-    console.log('Found service worker:', url)
-    const match = url.match(/chrome-extension:\/\/([^/]+)/)
-    if (match) {
-      console.log('Extracted Extension ID from service worker:', match[1])
-      return match[1]
+  // 尝试从所有已打开的页面中寻找扩展 ID
+  for (const page of context.pages()) {
+    const url = page.url()
+    if (url.startsWith('chrome-extension://')) {
+      const match = url.match(/chrome-extension:\/\/([^/]+)/)
+      if (match) return match[1]
     }
   }
 
-  console.log('Waiting for service worker...')
+  // 尝试从 background pages 寻找
+  const backgroundPages = context.backgroundPages()
+  if (backgroundPages.length > 0) {
+    const url = backgroundPages[0].url()
+    const match = url.match(/chrome-extension:\/\/([^/]+)/)
+    if (match) return match[1]
+  }
+
+  // 尝试从 service workers 寻找
+  const serviceWorkers = context.serviceWorkers()
+  if (serviceWorkers.length > 0) {
+    const url = serviceWorkers[0].url()
+    const match = url.match(/chrome-extension:\/\/([^/]+)/)
+    if (match) return match[1]
+  }
+
+  // 最后的手段：打开一个新页面并尝试获取
+  const tempPage = await context.newPage()
   try {
-    background = await context.waitForEvent('serviceworker', { timeout: 10000 })
-    const url = background.url()
-    console.log('Service worker found:', url)
-    const match = url.match(/chrome-extension:\/\/([^/]+)/)
-    if (match) {
-      console.log('Extracted Extension ID:', match[1])
-      return match[1]
+    await tempPage.goto('about:blank')
+    // 等待扩展加载
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
+    // 再次检查 service workers
+    const sw = context.serviceWorkers()
+    if (sw.length > 0) {
+      const match = sw[0].url().match(/chrome-extension:\/\/([^/]+)/)
+      if (match) return match[1]
     }
-  } catch (e) {
-    console.log('Service worker not found, trying other methods...')
+  } finally {
+    await tempPage.close()
   }
 
-  const pages = context.backgroundPages()
-  if (pages.length > 0) {
-    const url = pages[0].url()
-    console.log('Found background page:', url)
-    const match = url.match(/chrome-extension:\/\/([^/]+)/)
-    if (match) {
-      console.log('Extracted Extension ID from background page:', match[1])
-      return match[1]
-    }
-  }
-
-  console.log('Trying to get extension ID from page...')
-  const page = context.pages()[0]
-  if (page) {
-    try {
-      const extensionId = await page.evaluate(() => {
-        return (window as { chrome?: { runtime?: { id?: string } } }).chrome?.runtime?.id
-      })
-      if (extensionId) {
-        console.log('Found extension ID from page:', extensionId)
-        return extensionId
-      }
-    } catch (e) {
-      console.log('Could not get extension ID from page')
-    }
-  }
-
-  throw new Error('Could not get extension ID')
+  throw new Error('Could not get extension ID after multiple attempts')
 }
 
 export function getExtensionPath(): string {
