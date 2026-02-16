@@ -509,7 +509,7 @@ jobs:
           VITEST_COVERAGE_DIR: /tmp/coverage
 
       - name: 上传覆盖率报告到 Codecov
-        uses: codecov/codecov-action@015f24e6818733317a6b6067f53548073b6b107b # v4.6.0
+        uses: codecov/codecov-action@v4.6.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: /tmp/coverage/lcov.info
