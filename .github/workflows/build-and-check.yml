@@ -475,7 +475,7 @@ jobs:
           fi
 
   unit-test:
-    name: 单元测试
+    name: 单元测试与集成测试
     runs-on: ubuntu-latest
     needs: build-and-check
     permissions:
@@ -502,7 +502,32 @@ jobs:
       - name: 安装依赖
         run: npm ci
 
-      - name: 运行单元测试并生成覆盖率报告
+      - name: 安装 rclone (用于 WebDAV 集成测试)
+        run: |
+          sudo -v && curl https://rclone.org/install.sh | sudo bash
+
+      - name: 启动临时 WebDAV 服务
+        run: |
+          mkdir -p /tmp/webdav-data
+          nohup rclone serve webdav /tmp/webdav-data \
+            --addr :8080 \
+            --user testuser \
+            --pass testpass \
+            --vfs-cache-mode full \
+            --log-file /tmp/webdav.log > /dev/null 2>&1 &
+          echo "WEBDAV_URL=http://localhost:8080" >> $GITHUB_ENV
+          echo "WEBDAV_USER=testuser" >> $GITHUB_ENV
+          echo "WEBDAV_PASS=testpass" >> $GITHUB_ENV
+          # 等待服务启动并检查状态
+          sleep 5
+          if ! curl -u testuser:testpass http://localhost:8080 > /dev/null 2>&1; then
+            echo "❌ WebDAV 服务启动失败"
+            cat /tmp/webdav.log
+            exit 1
+          fi
+          echo "✅ WebDAV 服务已就绪"
+
+      - name: 运行测试并生成覆盖率报告
         run: npm run test:unit -- --coverage
         env:
           VITEST_OUTPUT_DIR: /tmp/test-results
@@ -521,7 +546,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: unit-test-results
+          name: test-results
           path: /tmp/test-results/
           retention-days: 7
 
@@ -595,31 +620,6 @@ jobs:
           cp -r "$PROD_BUILD"/* build/chrome-mv3-prod/
           echo "📂 manifest.json 内容:"
           cat "build/chrome-mv3-prod/manifest.json"
-
-      - name: 安装 rclone (用于 WebDAV 测试)
-        run: |
-          sudo -v && curl https://rclone.org/install.sh | sudo bash
-
-      - name: 启动临时 WebDAV 服务
-        run: |
-          mkdir -p /tmp/webdav-data
-          nohup rclone serve webdav /tmp/webdav-data \
-            --addr :8080 \
-            --user testuser \
-            --pass testpass \
-            --vfs-cache-mode full \
-            --log-file /tmp/webdav.log > /dev/null 2>&1 &
-          echo "WEBDAV_URL=http://localhost:8080" >> $GITHUB_ENV
-          echo "WEBDAV_USER=testuser" >> $GITHUB_ENV
-          echo "WEBDAV_PASS=testpass" >> $GITHUB_ENV
-          # 等待服务启动并检查状态
-          sleep 5
-          if ! curl -u testuser:testpass http://localhost:8080 > /dev/null 2>&1; then
-            echo "❌ WebDAV 服务启动失败"
-            cat /tmp/webdav.log
-            exit 1
-          fi
-          echo "✅ WebDAV 服务已就绪"
 
       - name: 运行 E2E 测试
         run: npm run test:e2e
