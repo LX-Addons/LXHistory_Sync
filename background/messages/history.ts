@@ -6,7 +6,7 @@ import { recordSyncHistory } from '~common/syncHistory'
 import type { HistoryItem } from '~common/types'
 
 interface HistoryRequestBody {
-  action: 'GET_HISTORY' | 'SYNC_TO_CLOUD' | 'SYNC_FROM_CLOUD'
+  action: 'SYNC_TO_CLOUD' | 'SYNC_FROM_CLOUD'
 }
 
 interface HistoryResponse {
@@ -23,13 +23,6 @@ const handler: PlasmoMessaging.MessageHandler<HistoryRequestBody, HistoryRespons
 
   try {
     switch (action) {
-      case 'GET_HISTORY': {
-        Logger.info('Getting local history')
-        const history = await getLocalHistory()
-        res.send({ success: true, data: history })
-        break
-      }
-
       case 'SYNC_TO_CLOUD': {
         Logger.info('Syncing to cloud')
         const localHistory = await getLocalHistory()
