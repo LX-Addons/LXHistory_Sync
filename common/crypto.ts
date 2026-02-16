@@ -203,7 +203,7 @@ export async function encrypt(
     const jsonData = JSON.stringify(data)
     const encoder = new TextEncoder()
     const actualSalt = salt || generateSalt()
-    
+
     const saltBinary = atob(actualSalt)
     const saltBytes = new Uint8Array(saltBinary.length)
     for (let i = 0; i < saltBinary.length; i++) {
@@ -273,7 +273,11 @@ export async function deriveDecryptionKey(
   return deriveKey(keyMaterial, salt, algorithm, 'decrypt')
 }
 
-export async function decrypt(encryptedData: string, key: string, type: string): Promise<HistoryItem[]> {
+export async function decrypt(
+  encryptedData: string,
+  key: string,
+  type: string
+): Promise<HistoryItem[]> {
   try {
     const binaryData = atob(encryptedData)
     const combined = new Uint8Array(binaryData.length)

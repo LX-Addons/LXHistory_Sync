@@ -12,7 +12,7 @@ import {
   encrypt,
   decrypt,
   PBKDF2_ITERATIONS,
-  SALT_LENGTH
+  SALT_LENGTH,
 } from '~/common/crypto'
 import type { HistoryItem } from '~/common/types'
 
@@ -20,7 +20,7 @@ describe('crypto', () => {
   beforeAll(() => {
     Object.defineProperty(global, 'crypto', {
       value: webcrypto,
-      writable: true
+      writable: true,
     })
   })
 
@@ -87,12 +87,12 @@ describe('crypto', () => {
       const masterPassword = 'test-master-password'
       const salt = generateSalt()
       const masterKey = await deriveMasterKey(masterPassword, salt)
-      
+
       const originalData = 'secret-data'
       const encrypted = await encryptData(originalData, masterKey)
-      
+
       expect(encrypted).not.toBe(originalData)
-      
+
       const decrypted = await decryptData(encrypted, masterKey)
       expect(decrypted).toBe(originalData)
     })
@@ -101,12 +101,12 @@ describe('crypto', () => {
       const masterPassword = 'test-master-password'
       const salt = generateSalt()
       const masterKey = await deriveMasterKey(masterPassword, salt)
-      
+
       const wrongKey = await deriveMasterKey('wrong-password', salt)
-      
+
       const originalData = 'secret-data'
       const encrypted = await encryptData(originalData, masterKey)
-      
+
       await expect(decryptData(encrypted, wrongKey)).rejects.toThrow()
     })
   })
@@ -118,17 +118,17 @@ describe('crypto', () => {
         url: 'https://example.com',
         title: 'Example',
         lastVisitTime: 1234567890,
-        visitCount: 1
-      }
+        visitCount: 1,
+      },
     ]
 
     it('should encrypt and decrypt history items', async () => {
       const key = 'encryption-key-123'
       const type = 'aes-256-gcm'
-      
+
       const encrypted = await encrypt(mockHistory, key, type)
       expect(typeof encrypted).toBe('string')
-      
+
       const decrypted = await decrypt(encrypted, key, type)
       expect(decrypted).toEqual(mockHistory)
     })
@@ -136,7 +136,7 @@ describe('crypto', () => {
     it('should support different algorithms', async () => {
       const key = 'encryption-key-123'
       const algorithms = ['aes-256-gcm', 'aes-256-cbc', 'aes-256-ctr']
-      
+
       for (const type of algorithms) {
         const encrypted = await encrypt(mockHistory, key, type)
         const decrypted = await decrypt(encrypted, key, type)
@@ -147,17 +147,17 @@ describe('crypto', () => {
     it('should fail integrity check if data is tampered', async () => {
       const key = 'encryption-key-123'
       const type = 'aes-256-gcm'
-      
+
       const encrypted = await encrypt(mockHistory, key, type)
-      
+
       const binaryString = atob(encrypted)
       const bytes = new Uint8Array(binaryString.length)
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i)
       }
-      
+
       bytes[bytes.length - 1] ^= 1
-      
+
       let tampered = ''
       for (let i = 0; i < bytes.length; i++) {
         tampered += String.fromCharCode(bytes[i])
@@ -172,7 +172,10 @@ describe('crypto', () => {
     it('getAlgorithmParams should return correct params', () => {
       expect(getAlgorithmParams('aes-256-gcm')).toEqual({ name: 'AES-GCM', length: 256 })
       expect(getAlgorithmParams('aes-256-ctr')).toEqual({ name: 'AES-CTR', length: 256 })
-      expect(getAlgorithmParams('chacha20-poly1305')).toEqual({ name: 'ChaCha20-Poly1305', length: 256 })
+      expect(getAlgorithmParams('chacha20-poly1305')).toEqual({
+        name: 'ChaCha20-Poly1305',
+        length: 256,
+      })
       expect(getAlgorithmParams('unknown')).toEqual({ name: 'AES-CBC', length: 256 })
     })
 

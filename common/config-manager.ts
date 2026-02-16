@@ -6,7 +6,7 @@ import {
   deriveMasterKey,
   encryptData,
   generateSalt,
-  hashPassword
+  hashPassword,
 } from './crypto'
 import { Logger } from './logger'
 import type { CloudSyncResult, KeyStrength, WebDAVConfig } from './types'
@@ -52,40 +52,41 @@ export function getErrorRecovery(error: Error): ErrorRecovery {
   if (errorMessage.includes('认证失败') || errorMessage.includes('authentication')) {
     return {
       message: '认证失败',
-      actions: '检查WebDAV用户名和密码是否正确\n确保WebDAV服务器是否正常运行\n尝试重新登录WebDAV服务'
+      actions:
+        '检查WebDAV用户名和密码是否正确\n确保WebDAV服务器是否正常运行\n尝试重新登录WebDAV服务',
     }
   }
   if (errorMessage.includes('网络') || errorMessage.includes('connection')) {
     return {
       message: '网络连接失败',
       actions:
-        '检查网络连接是否正常\n确保WebDAV服务器地址是否正确\n尝试使用其他网络连接\n检查防火墙设置'
+        '检查网络连接是否正常\n确保WebDAV服务器地址是否正确\n尝试使用其他网络连接\n检查防火墙设置',
     }
   }
   if (errorMessage.includes('解密') || errorMessage.includes('decrypt')) {
     return {
       message: '解密失败',
       actions:
-        '检查主密码是否正确\n确保加密密钥是否正确\n尝试重新设置主密码\n清除加密数据并重新配置'
+        '检查主密码是否正确\n确保加密密钥是否正确\n尝试重新设置主密码\n清除加密数据并重新配置',
     }
   }
   if (errorMessage.includes('配置') || errorMessage.includes('config')) {
     return {
       message: '配置错误',
       actions:
-        '检查WebDAV配置是否完整\n确保URL格式是否正确（必须使用HTTPS）\n验证用户名和密码是否已填写\n重新保存配置'
+        '检查WebDAV配置是否完整\n确保URL格式是否正确（必须使用HTTPS）\n验证用户名和密码是否已填写\n重新保存配置',
     }
   }
   if (errorMessage.includes('格式') || errorMessage.includes('format')) {
     return {
       message: '数据格式错误',
       actions:
-        '确保云端数据是否完整\n尝试从云端重新同步\n清除本地历史记录并重新同步\n联系WebDAV服务提供商'
+        '确保云端数据是否完整\n尝试从云端重新同步\n清除本地历史记录并重新同步\n联系WebDAV服务提供商',
     }
   }
   return {
     message: '未知错误',
-    actions: '刷新页面重试\n检查浏览器控制台获取详细信息\n清除浏览器缓存\n重启浏览器'
+    actions: '刷新页面重试\n检查浏览器控制台获取详细信息\n清除浏览器缓存\n重启浏览器',
   }
 }
 
@@ -148,8 +149,8 @@ export async function setMasterPassword(password: string): Promise<void> {
         ...configToReencrypt.encryption,
         key: configToReencrypt.encryption?.key
           ? await encryptData(configToReencrypt.encryption.key, newMasterKey)
-          : undefined
-      }
+          : undefined,
+      },
     }
     await storage.set('webdav_config', configToSave)
   }
@@ -272,7 +273,7 @@ export async function loadAndDecryptConfig(masterKey: CryptoKey): Promise<WebDAV
       ...storedConfig.encryption,
       key: await decryptData(encryptedKey, masterKey),
       enabled: storedConfig.encryption.enabled,
-      type: storedConfig.encryption.type
+      type: storedConfig.encryption.type,
     }
   }
 
@@ -286,7 +287,7 @@ export function createValidationResult(errorMessage: string): CloudSyncResult {
     success: false,
     error: recovery.message,
     message: errorMessage || '验证失败',
-    recovery: recovery.actions
+    recovery: recovery.actions,
   }
 }
 

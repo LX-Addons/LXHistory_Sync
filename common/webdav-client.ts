@@ -1,13 +1,9 @@
-import {
-  decrypt,
-  encrypt,
-  generateSalt
-} from './crypto'
+import { decrypt, encrypt, generateSalt } from './crypto'
 import {
   clearSessionConfig,
   getErrorRecovery,
   getValidatedConfig,
-  throwConfigError
+  throwConfigError,
 } from './config-manager'
 import { mergeHistory } from './history'
 import { WEBDAV_FILENAME } from '~store'
@@ -24,7 +20,7 @@ export function isRetryableError(error: Error): boolean {
     'failed to fetch',
     'networkerror',
     'err_connection',
-    'err_internet'
+    'err_internet',
   ]
   const errorMessage = error.message.toLowerCase()
   return retryableMessages.some(msg => errorMessage.includes(msg))
@@ -97,7 +93,7 @@ export async function prepareUploadContent(
 
   return {
     content: JSON.stringify(merged),
-    contentType: 'application/json'
+    contentType: 'application/json',
   }
 }
 
@@ -128,7 +124,7 @@ export function handleHttpError(response: Response): CloudSyncResult {
     success: false,
     error: errorMessage,
     message: errorMessage,
-    recovery: recovery.actions
+    recovery: recovery.actions,
   }
 }
 
@@ -138,7 +134,7 @@ export async function testWebDAVConnection(config: WebDAVConfig): Promise<CloudS
       success: false,
       error: '请先填写完整的 WebDAV 配置',
       message: '配置不完整',
-      recovery: '请填写 WebDAV 服务器地址、用户名和密码'
+      recovery: '请填写 WebDAV 服务器地址、用户名和密码',
     }
   }
 
@@ -150,14 +146,14 @@ export async function testWebDAVConnection(config: WebDAVConfig): Promise<CloudS
       method: 'PROPFIND',
       headers: {
         Authorization: `Basic ${authString}`,
-        Depth: '0'
-      }
+        Depth: '0',
+      },
     })
 
     if (response.ok || response.status === 207) {
       return {
         success: true,
-        message: 'WebDAV 连接测试成功'
+        message: 'WebDAV 连接测试成功',
       }
     }
 
@@ -169,7 +165,7 @@ export async function testWebDAVConnection(config: WebDAVConfig): Promise<CloudS
       success: false,
       error: error instanceof Error ? error.message : '连接测试失败',
       message: '连接测试失败',
-      recovery: '请检查网络连接、服务器地址和凭证是否正确'
+      recovery: '请检查网络连接、服务器地址和凭证是否正确',
     }
   }
 }
@@ -206,8 +202,8 @@ export async function createWebDAVClient(
       ...options,
       headers: {
         ...options.headers,
-        Authorization: auth
-      }
+        Authorization: auth,
+      },
     })
   }
 
@@ -317,7 +313,7 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
         const response = await client.fetch(`/${WEBDAV_FILENAME}`, {
           method: 'PUT',
           headers: { 'Content-Type': contentType },
-          body: content
+          body: content,
         })
 
         if (!response.ok) {
@@ -327,7 +323,7 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
         return {
           success: true,
           items: mergedResult.items,
-          message: `同步成功！合并 ${mergedResult.totalItems} 条记录（本地独有 ${mergedResult.localOnly}，远程独有 ${mergedResult.remoteOnly}，更新 ${mergedResult.updated}）`
+          message: `同步成功！合并 ${mergedResult.totalItems} 条记录（本地独有 ${mergedResult.localOnly}，远程独有 ${mergedResult.remoteOnly}，更新 ${mergedResult.updated}）`,
         }
       }),
     3,
