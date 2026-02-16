@@ -1,17 +1,26 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import type { FormEvent } from 'react'
 import { Storage } from '@plasmohq/storage'
-import type { IconSourceType, CheckboxStyleType } from '~common/types'
+import type { IconSourceType, CheckboxStyleType, ExportResult } from '~common/types'
 import { useGeneralConfig } from '~hooks/useGeneralConfig'
 import CheckboxField from '~components/CheckboxField'
 import StatusMessage from '~components/StatusMessage'
 
 const storage = new Storage()
 
+async function sendToBackground<Req, Res>(request: { name: string; body?: Req }): Promise<Res> {
+  const messaging = await import('@plasmohq/messaging')
+  return messaging.sendToBackground(
+    request as Parameters<typeof messaging.sendToBackground>[0]
+  ) as Promise<Res>
+}
+
 export default function GeneralTab() {
   const { generalConfig, setGeneralConfig, status, handleSave, getCheckboxClassName } =
     useGeneralConfig()
   const [localStatus, setLocalStatus] = useState('')
   const [hasMasterPassword, setHasMasterPassword] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     const checkMasterPassword = async () => {
@@ -23,9 +32,39 @@ export default function GeneralTab() {
     checkMasterPassword()
   }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     await handleSave(e)
     setLocalStatus(status)
+  }
+
+  const handleExport = async (format: 'EXPORT_JSON' | 'EXPORT_CSV') => {
+    setExporting(true)
+    try {
+      const result = await sendToBackground<{ action: 'EXPORT_JSON' | 'EXPORT_CSV' }, ExportResult>(
+        {
+          name: 'export',
+          body: { action: format },
+        }
+      )
+
+      if (result.success && result.data && result.filename) {
+        const mimeType = format === 'EXPORT_JSON' ? 'application/json' : 'text/csv'
+        const dataUrl = `data:${mimeType};base64,${result.data}`
+        const link = document.createElement('a')
+        link.href = dataUrl
+        link.download = result.filename
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        setLocalStatus('✅ 导出成功')
+      } else {
+        setLocalStatus(`❌ 导出失败: ${result.error || '未知错误'}`)
+      }
+    } catch (error) {
+      setLocalStatus(`❌ 导出失败: ${error instanceof Error ? error.message : '未知错误'}`)
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
@@ -211,6 +250,38 @@ export default function GeneralTab() {
           保存通用设置
         </button>
         <StatusMessage message={localStatus} onClear={() => setLocalStatus('')} />
+
+        <div
+          className="export-section"
+          style={{
+            marginTop: '24px',
+            paddingTop: '24px',
+            borderTop: '1px solid var(--border-color)',
+          }}
+        >
+          <h3 style={{ marginBottom: '12px', fontSize: '16px' }}>导出数据</h3>
+          <p style={{ fontSize: '14px', color: 'var(--text-light)', marginBottom: '16px' }}>
+            将历史记录导出为 JSON 或 CSV 格式文件。
+          </p>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => handleExport('EXPORT_JSON')}
+              disabled={exporting}
+            >
+              {exporting ? '导出中...' : '导出为 JSON'}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => handleExport('EXPORT_CSV')}
+              disabled={exporting}
+            >
+              {exporting ? '导出中...' : '导出为 CSV'}
+            </button>
+          </div>
+        </div>
       </form>
     </div>
   )

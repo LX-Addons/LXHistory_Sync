@@ -1,5 +1,6 @@
 import type { PlasmoMessaging } from '@plasmohq/messaging'
 import { Logger } from '~common/logger'
+import { performScheduledSync, setupAlarms } from '../index'
 
 interface SyncRequestBody {
   action?: 'SYNC_DATA' | 'UPDATE_SYNC_SETTINGS'
@@ -11,7 +12,6 @@ const handler: PlasmoMessaging.MessageHandler<SyncRequestBody> = async (req, res
   if (action === 'SYNC_DATA') {
     Logger.info('Sync requested from popup')
     try {
-      const { performScheduledSync } = await import('../index')
       await performScheduledSync()
       res.send({ success: true })
     } catch (error) {
@@ -21,8 +21,7 @@ const handler: PlasmoMessaging.MessageHandler<SyncRequestBody> = async (req, res
   } else if (action === 'UPDATE_SYNC_SETTINGS') {
     Logger.info('Sync settings updated')
     try {
-      const { startSyncTimer } = await import('../index')
-      await startSyncTimer()
+      await setupAlarms()
       res.send({ success: true })
     } catch (error) {
       Logger.error('Failed to update sync settings', error)

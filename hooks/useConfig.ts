@@ -14,7 +14,7 @@ export function useConfig() {
     password: '',
     encryption: {
       enabled: false,
-      type: 'none',
+      type: 'aes-256-gcm',
     },
   })
   const [status, setStatus] = useState('')

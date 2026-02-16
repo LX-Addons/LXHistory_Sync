@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
+import type { FormEvent } from 'react'
 import type { ThemeType } from '~common/types'
 import { useTheme } from '~hooks/useTheme'
 import StatusMessage from '~components/StatusMessage'
@@ -7,7 +8,7 @@ export default function ThemeTab() {
   const { themeConfig, setThemeConfig, status, handleSave } = useTheme()
   const [localStatus, setLocalStatus] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     await handleSave(e)
     setLocalStatus(status)
   }

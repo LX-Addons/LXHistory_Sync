@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { useMasterPassword } from '~hooks/useMasterPassword'
 import StatusMessage from '~components/StatusMessage'
 
@@ -21,7 +22,7 @@ export default function SecurityTab() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  const handleSubmitWithStatus = async (e: React.FormEvent) => {
+  const handleSubmitWithStatus = async (e: FormEvent) => {
     await handleSubmit(e)
     setLocalStatus(status)
   }
@@ -40,6 +41,31 @@ export default function SecurityTab() {
 
       {!showMasterPasswordForm ? (
         <div className="security-status">
+          {!hasMasterPassword && (
+            <div className="security-warning">
+              <div className="security-warning-icon">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+              <div className="security-warning-content">
+                <div className="security-warning-title">建议设置主密码</div>
+                <div className="security-warning-text">
+                  设置主密码可以加密保护您的 WebDAV 凭证和加密密钥，确保数据安全。
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="status-card">
             <div className="status-icon">
               {hasMasterPassword ? (

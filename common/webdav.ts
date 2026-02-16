@@ -258,7 +258,7 @@ async function clearMasterPassword(): Promise<void> {
 }
 
 function calculateKeyStrength(key: string): KeyStrength {
-  if (!key || key.length < 8) return 'weak'
+  if (!key || key.length < 12) return 'weak'
 
   let strength = 0
   if (key.length >= 12) strength++
@@ -546,17 +546,49 @@ function validateEncryptionKey(key: string): {
   strength: KeyStrength
   error?: string
 } {
-  if (!key || key.length < 8) {
-    return { isValid: false, strength: 'weak', error: '加密密钥长度至少为 8 个字符' }
+  if (!key || key.length < 12) {
+    return { isValid: false, strength: 'weak', error: '加密密钥长度至少为 12 个字符' }
+  }
+
+  if (!/[A-Z]/.test(key)) {
+    return { isValid: false, strength: 'weak', error: '加密密钥必须包含至少一个大写字母' }
+  }
+
+  if (!/[a-z]/.test(key)) {
+    return { isValid: false, strength: 'weak', error: '加密密钥必须包含至少一个小写字母' }
+  }
+
+  if (!/[0-9]/.test(key)) {
+    return { isValid: false, strength: 'weak', error: '加密密钥必须包含至少一个数字' }
   }
 
   const strength = calculateKeyStrength(key)
 
   if (strength === 'weak') {
-    return { isValid: true, strength, error: '建议使用更强的加密密钥' }
+    return { isValid: true, strength, error: '建议使用更强的加密密钥（添加特殊字符）' }
   }
 
   return { isValid: true, strength }
+}
+
+function isRetryableError(error: Error): boolean {
+  const retryableMessages = [
+    'network',
+    'connection',
+    'timeout',
+    'abort',
+    'fetch',
+    'failed to fetch',
+    'networkerror',
+    'err_connection',
+    'err_internet',
+  ]
+  const errorMessage = error.message.toLowerCase()
+  return retryableMessages.some(msg => errorMessage.includes(msg))
+}
+
+function isRetryableStatus(status: number): boolean {
+  return status === 0 || status === 408 || status === 429 || (status >= 500 && status < 600)
 }
 
 async function fetchWithRetry(
@@ -579,6 +611,10 @@ async function fetchWithRetry(
         throw new Error('Authentication failed')
       }
 
+      if (isRetryableStatus(response.status)) {
+        throw new Error(`HTTP error ${response.status}`)
+      }
+
       throw new Error(`HTTP error ${response.status}`)
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error))
@@ -587,10 +623,18 @@ async function fetchWithRetry(
         throw lastError
       }
 
+      const shouldRetry = isRetryableError(lastError) || lastError.message.includes('HTTP error')
+
+      if (!shouldRetry && attempt > 0) {
+        throw lastError
+      }
+
       Logger.warn(`Attempt ${attempt + 1} failed`, lastError.message)
 
       if (attempt < maxRetries - 1) {
-        await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)))
+        const delay = retryDelay * (attempt + 1)
+        Logger.info(`Retrying in ${delay}ms...`)
+        await new Promise(resolve => setTimeout(resolve, delay))
       }
     }
   }
@@ -910,56 +954,95 @@ async function fetchRemoteHistory(
   return data
 }
 
-export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyncResult> {
-  return executeSync(async ({ config, client }) => {
-    let remoteHistory: HistoryItem[] = []
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries = 3,
+  operationName = 'operation'
+): Promise<T> {
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      // Use internal function to avoid nested executeSync
-      remoteHistory = await fetchRemoteHistory(client, config)
+      return await operation()
     } catch (error) {
-      Logger.info('No remote history found or first sync', error)
+      lastError = error instanceof Error ? error : new Error(String(error))
+
+      if (lastError.message.includes('认证') || lastError.message.includes('Authentication')) {
+        throw lastError
+      }
+
+      Logger.warn(`${operationName} attempt ${attempt + 1} failed`, lastError.message)
+
+      if (attempt < maxRetries - 1) {
+        const delay = 1000 * (attempt + 1)
+        Logger.info(`Retrying ${operationName} in ${delay}ms...`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
     }
+  }
 
-    const merged = await mergeHistory(localHistory, remoteHistory)
-    const { content, contentType } = await prepareUploadContent(merged, config)
+  throw lastError
+}
 
-    const response = await client.fetch(`/${WEBDAV_FILENAME}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': contentType },
-      body: content,
-    })
+export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyncResult> {
+  return withRetry(
+    () =>
+      executeSync(async ({ config, client }) => {
+        let remoteHistory: HistoryItem[] = []
+        try {
+          remoteHistory = await fetchRemoteHistory(client, config)
+        } catch (error) {
+          Logger.info('No remote history found or first sync', error)
+        }
 
-    if (!response.ok) {
-      return handleHttpError(response) as CloudSyncResult
-    }
+        const mergedResult = mergeHistory(localHistory, remoteHistory)
+        const { content, contentType } = await prepareUploadContent(mergedResult.items, config)
 
-    return {
-      success: true,
-      items: merged,
-      message: '同步到云端成功！已合并数据。',
-    }
-  })
+        const response = await client.fetch(`/${WEBDAV_FILENAME}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': contentType },
+          body: content,
+        })
+
+        if (!response.ok) {
+          return handleHttpError(response) as CloudSyncResult
+        }
+
+        return {
+          success: true,
+          items: mergedResult.items,
+          message: `同步成功！合并 ${mergedResult.totalItems} 条记录（本地独有 ${mergedResult.localOnly}，远程独有 ${mergedResult.remoteOnly}，更新 ${mergedResult.updated}）`,
+        }
+      }),
+    3,
+    'syncToCloud'
+  )
 }
 
 export async function syncFromCloud(): Promise<HistoryItem[]> {
-  return executeSync(async ({ config, client }) => {
-    const response = await client.fetch(`/${WEBDAV_FILENAME}`, { method: 'GET' })
+  return withRetry(
+    () =>
+      executeSync(async ({ config, client }) => {
+        const response = await client.fetch(`/${WEBDAV_FILENAME}`, { method: 'GET' })
 
-    if (response.status === 404) return []
+        if (response.status === 404) return []
 
-    if (!response.ok) {
-      const httpError = handleHttpError(response)
-      throwConfigError(httpError.error || '同步失败')
-    }
+        if (!response.ok) {
+          const httpError = handleHttpError(response)
+          throwConfigError(httpError.error || '同步失败')
+        }
 
-    const data = await parseResponseData(response, config)
+        const data = await parseResponseData(response, config)
 
-    if (!Array.isArray(data)) {
-      throwConfigError('云端数据格式错误')
-    }
+        if (!Array.isArray(data)) {
+          throwConfigError('云端数据格式错误')
+        }
 
-    return data
-  })
+        return data
+      }),
+    3,
+    'syncFromCloud'
+  )
 }
 
 export {

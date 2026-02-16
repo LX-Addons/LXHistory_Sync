@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
+import type { FC } from 'react'
 import type { HistoryItem as HistoryItemType, IconSourceType } from '~common/types'
 import { extractDomain, getFaviconUrl, getLetterIcon, formatTime } from '~common/utils'
 
@@ -13,7 +14,7 @@ interface FaviconProps {
   iconSource: IconSourceType
 }
 
-const Favicon: React.FC<FaviconProps> = ({ url, iconSource }) => {
+const Favicon: FC<FaviconProps> = ({ url, iconSource }) => {
   const [hasError, setHasError] = useState(false)
   const domain = extractDomain(url)
 
@@ -35,11 +36,7 @@ const Favicon: React.FC<FaviconProps> = ({ url, iconSource }) => {
   )
 }
 
-const HistoryItem: React.FC<HistoryItemProps> = ({
-  item,
-  showUrls = false,
-  iconSource = 'byteance',
-}) => {
+const HistoryItem: FC<HistoryItemProps> = ({ item, showUrls = false, iconSource = 'byteance' }) => {
   const handleClick = () => {
     if (item.url) {
       window.open(item.url, '_blank')
