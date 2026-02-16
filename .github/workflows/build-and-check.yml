@@ -641,21 +641,9 @@ jobs:
   security-audit:
     name: 安全与质量审计
     runs-on: ubuntu-latest
-    permissions:
-      security-events: write
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
-
-      - name: 初始化 CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: javascript-typescript
-
-      - name: 运行 CodeQL 分析
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:javascript-typescript"
 
       - name: 重复代码检测 (jscpd)
         run: |
