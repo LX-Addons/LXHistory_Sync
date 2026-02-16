@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { Logger, LogLevel, log } from '~/common/logger'
+import { Logger, LogLevel, log, setLogLevel } from '~/common/logger'
 
 describe('logger', () => {
   describe('LogLevel', () => {
@@ -13,18 +13,34 @@ describe('logger', () => {
   })
 
   describe('Logger', () => {
+    let consoleDebugSpy: ReturnType<typeof vi.spyOn>
     let consoleInfoSpy: ReturnType<typeof vi.spyOn>
     let consoleWarnSpy: ReturnType<typeof vi.spyOn>
     let consoleErrorSpy: ReturnType<typeof vi.spyOn>
 
     beforeEach(() => {
+      consoleDebugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
       consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
       consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
       consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      // 默认重置为 INFO
+      setLogLevel(LogLevel.INFO)
     })
 
     afterEach(() => {
       vi.restoreAllMocks()
+    })
+
+    it('Logger.debug 应该在 DEBUG 级别下调用 console.debug', () => {
+      setLogLevel(LogLevel.DEBUG)
+      Logger.debug('test message')
+      expect(consoleDebugSpy).toHaveBeenCalled()
+    })
+
+    it('Logger.debug 不应该在 INFO 级别下调用 console.debug', () => {
+      setLogLevel(LogLevel.INFO)
+      Logger.debug('test message')
+      expect(consoleDebugSpy).not.toHaveBeenCalled()
     })
 
     it('Logger.info 应该调用 console.info', () => {
@@ -56,18 +72,27 @@ describe('logger', () => {
   })
 
   describe('log function', () => {
+    let consoleDebugSpy: ReturnType<typeof vi.spyOn>
     let consoleInfoSpy: ReturnType<typeof vi.spyOn>
     let consoleWarnSpy: ReturnType<typeof vi.spyOn>
     let consoleErrorSpy: ReturnType<typeof vi.spyOn>
 
     beforeEach(() => {
+      consoleDebugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
       consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
       consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
       consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      setLogLevel(LogLevel.INFO)
     })
 
     afterEach(() => {
       vi.restoreAllMocks()
+    })
+
+    it('log DEBUG 应该在 DEBUG 级别下调用 Logger.debug', () => {
+      setLogLevel(LogLevel.DEBUG)
+      log(LogLevel.DEBUG, 'test message')
+      expect(consoleDebugSpy).toHaveBeenCalled()
     })
 
     it('log INFO 应该调用 Logger.info', () => {
