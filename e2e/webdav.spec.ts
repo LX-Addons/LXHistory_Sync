@@ -10,10 +10,7 @@ test.describe('WebDAV 集成测试', () => {
     const extensionPath = getExtensionPath()
     context = await chromium.launchPersistentContext('', {
       headless: true,
-      args: [
-        `--disable-extensions-except=${extensionPath}`,
-        `--load-extension=${extensionPath}`,
-      ],
+      args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
     })
 
     extensionId = await getExtensionId(context)
