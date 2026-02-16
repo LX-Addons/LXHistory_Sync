@@ -117,13 +117,42 @@ describe('WebDAV Client', () => {
       expect(global.fetch).toHaveBeenCalledTimes(3)
     })
 
-    it('should not retry on authentication failure', async () => {
-      ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 401 })
-
-      await expect(fetchWithRetry('https://example.com', {}, 3, 10)).rejects.toThrow(
+    it('should throw on 403 Forbidden', async () => {
+      ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 403 })
+      await expect(fetchWithRetry('https://example.com', {})).rejects.toThrow(
         'Authentication failed'
       )
+    })
+
+    it('should retry on 500 Server Error', async () => {
+      ;(global.fetch as Mock)
+        .mockResolvedValueOnce({ ok: false, status: 500 })
+        .mockResolvedValueOnce({ ok: true, status: 200 })
+
+      const response = await fetchWithRetry('https://example.com', {}, 3, 10)
+      expect(response.ok).toBe(true)
+      expect(global.fetch).toHaveBeenCalledTimes(2)
+    })
+
+    it('should throw immediately for non-retryable error', async () => {
+      ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 400 })
+      await expect(fetchWithRetry('https://example.com', {})).rejects.toThrow('HTTP error 400')
       expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('should wait between retries', async () => {
+      vi.useFakeTimers()
+      ;(global.fetch as Mock)
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce({ ok: true, status: 200 })
+
+      const promise = fetchWithRetry('https://example.com', {}, 3, 1000)
+      
+      await vi.advanceTimersByTimeAsync(1000)
+      
+      const response = await promise
+      expect(response.ok).toBe(true)
+      vi.useRealTimers()
     })
   })
 
@@ -151,12 +180,32 @@ describe('WebDAV Client', () => {
   describe('handleHttpError', () => {
     it('should return correct error message for 401', () => {
       const result = handleHttpError({ status: 401 } as Response)
-      expect(result.error).toBeDefined()
+      expect(result.error).toBe('认证失败，请检查用户名和密码')
+    })
+
+    it('should return correct error message for 403', () => {
+      const result = handleHttpError({ status: 403 } as Response)
+      expect(result.error).toBe('没有权限访问 WebDAV 服务器')
     })
 
     it('should return correct error message for 404', () => {
       const result = handleHttpError({ status: 404 } as Response)
-      expect(result.error).toBeDefined()
+      expect(result.error).toBe('WebDAV 服务器路径不存在')
+    })
+
+    it('should return correct error message for 500', () => {
+      const result = handleHttpError({ status: 500 } as Response)
+      expect(result.error).toBe('WebDAV 服务器内部错误')
+    })
+
+    it('should return correct error message for 0', () => {
+      const result = handleHttpError({ status: 0 } as Response)
+      expect(result.error).toBe('无法连接到 WebDAV 服务器，请检查网络连接')
+    })
+
+    it('should return default error message for unknown status', () => {
+      const result = handleHttpError({ status: 418 } as Response)
+      expect(result.error).toBe('同步失败')
     })
   })
 
@@ -170,6 +219,19 @@ describe('WebDAV Client', () => {
     it('should return failure when config is incomplete', async () => {
       const result = await testWebDAVConnection({ ...mockConfig, url: '' })
       expect(result.success).toBe(false)
+    })
+
+    it('should return success for 207 Multi-Status', async () => {
+      ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 207 })
+      const result = await testWebDAVConnection(mockConfig)
+      expect(result.success).toBe(true)
+    })
+
+    it('should return failure with error message from handleHttpError', async () => {
+      ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 404 })
+      const result = await testWebDAVConnection(mockConfig)
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('WebDAV 服务器路径不存在')
     })
 
     it('should return failure when connection fails', async () => {
@@ -205,6 +267,25 @@ describe('WebDAV Client', () => {
 
       const result = await parseResponseData(mockResponse, encryptedConfig)
       expect(result).toEqual(mockHistoryItems)
+      expect(crypto.decrypt).toHaveBeenCalled()
+    })
+    it('should handle large encrypted data in chunks', async () => {
+      const encryptedConfig: WebDAVConfig = {
+        ...mockConfig,
+        encryption: { enabled: true, key: 'secret', type: 'aes-256-gcm' },
+      }
+      // Create a large buffer > 65536
+      const largeBuffer = new Uint8Array(70000)
+      const mockBlob = {
+        arrayBuffer: vi.fn().mockResolvedValue(largeBuffer.buffer),
+      }
+      const mockResponse = {
+        blob: vi.fn().mockResolvedValue(mockBlob),
+      } as unknown as Response
+
+      vi.mocked(crypto.decrypt).mockResolvedValue(mockHistoryItems)
+
+      await parseResponseData(mockResponse, encryptedConfig)
       expect(crypto.decrypt).toHaveBeenCalled()
     })
   })
@@ -276,6 +357,23 @@ describe('WebDAV Client', () => {
       const result = await fetchRemoteHistory(mockClient, mockConfig)
       expect(result).toEqual(mockHistoryItems)
     })
+    it('should throw config error on failure', async () => {
+      const mockResponse = { ok: false, status: 500 }
+      const mockClient = { fetch: vi.fn().mockResolvedValue(mockResponse) }
+
+      await expect(fetchRemoteHistory(mockClient, mockConfig)).rejects.toThrow()
+    })
+
+    it('should throw config error on invalid data format', async () => {
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ not: 'an array' }),
+      }
+      const mockClient = { fetch: vi.fn().mockResolvedValue(mockResponse) }
+
+      await expect(fetchRemoteHistory(mockClient, mockConfig)).rejects.toThrow('云端数据格式错误')
+    })
   })
 
   describe('syncToCloud', () => {
@@ -296,6 +394,70 @@ describe('WebDAV Client', () => {
       expect(result.success).toBe(true)
       expect(result.items).toEqual(mockHistoryItems)
     })
+    it('should handle first sync (no remote history)', async () => {
+      vi.mocked(configManager.getValidatedConfig).mockResolvedValue(mockConfig)
+      const mockResponse = { ok: true, status: 200 }
+      // First call fails (404), second call succeeds (PUT)
+      ;(global.fetch as Mock)
+        .mockResolvedValueOnce({ ok: false, status: 404 })
+        .mockResolvedValueOnce(mockResponse)
+
+      vi.mocked(history.mergeHistory).mockReturnValue({
+        items: mockHistoryItems,
+        totalItems: 1,
+        localOnly: 1,
+        remoteOnly: 0,
+        updated: 0,
+      })
+
+      const result = await syncToCloud(mockHistoryItems)
+      expect(result.success).toBe(true)
+    })
+
+    it('should throw on upload failure', async () => {
+      vi.useFakeTimers()
+      vi.mocked(configManager.getValidatedConfig).mockResolvedValue(mockConfig)
+      ;(global.fetch as Mock)
+        .mockResolvedValueOnce({ ok: true, status: 200, json: () => [] }) // GET success
+        .mockResolvedValue({ ok: false, status: 500 }) // PUT fail (all retries)
+
+      vi.mocked(history.mergeHistory).mockReturnValue({
+        items: [],
+        totalItems: 0,
+        localOnly: 0,
+        remoteOnly: 0,
+        updated: 0,
+      })
+
+      const promise = syncToCloud(mockHistoryItems)
+      
+      // Prevent unhandled rejection
+      promise.catch(() => {})
+      
+      // Fast-forward through all retries
+      await vi.runAllTimersAsync()
+      
+      await expect(promise).rejects.toThrow()
+      vi.useRealTimers()
+    })
+
+    it('should return error result on 404 upload response', async () => {
+      vi.mocked(configManager.getValidatedConfig).mockResolvedValue(mockConfig)
+      ;(global.fetch as Mock)
+        .mockResolvedValueOnce({ ok: true, status: 200, json: () => [] }) // GET success
+        .mockResolvedValueOnce({ ok: false, status: 404 }) // PUT fail (404 is not retried by fetchWithRetry but handled by syncToCloud)
+
+      vi.mocked(history.mergeHistory).mockReturnValue({
+        items: [],
+        totalItems: 0,
+        localOnly: 0,
+        remoteOnly: 0,
+        updated: 0,
+      })
+
+      const result = await syncToCloud(mockHistoryItems)
+      expect(result.success).toBe(false)
+    })
   })
 
   describe('syncFromCloud', () => {
@@ -311,6 +473,40 @@ describe('WebDAV Client', () => {
       const result = await syncFromCloud()
 
       expect(result).toEqual(mockHistoryItems)
+    })
+    it('should return empty array on 404', async () => {
+      vi.mocked(configManager.getValidatedConfig).mockResolvedValue(mockConfig)
+      ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 404 })
+
+      const result = await syncFromCloud()
+      expect(result).toEqual([])
+    })
+
+    it('should throw on fetch error', async () => {
+      vi.useFakeTimers()
+      vi.mocked(configManager.getValidatedConfig).mockResolvedValue(mockConfig)
+      ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 500 })
+
+      const promise = syncFromCloud()
+      
+      // Prevent unhandled rejection
+      promise.catch(() => {})
+      
+      await vi.runAllTimersAsync()
+      
+      await expect(promise).rejects.toThrow()
+      vi.useRealTimers()
+    })
+
+    it('should throw on invalid data format', async () => {
+      vi.mocked(configManager.getValidatedConfig).mockResolvedValue(mockConfig)
+      ;(global.fetch as Mock).mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ not: 'an array' }),
+      })
+
+      await expect(syncFromCloud()).rejects.toThrow('云端数据格式错误')
     })
   })
 })

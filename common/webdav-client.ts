@@ -54,11 +54,17 @@ export async function fetchWithRetry(
         throw new Error(`HTTP error ${response.status}`)
       }
 
-      throw new Error(`HTTP error ${response.status}`)
+      const error = new Error(`HTTP error ${response.status}`)
+      Object.assign(error, { shouldRetry: false })
+      throw error
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error))
 
       if (lastError.message === 'Authentication failed') {
+        throw lastError
+      }
+
+      if ('shouldRetry' in lastError && lastError.shouldRetry === false) {
         throw lastError
       }
 

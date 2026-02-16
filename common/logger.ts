@@ -6,7 +6,11 @@ export enum LogLevel {
   NONE = 4,
 }
 
-const currentLogLevel = process.env.NODE_ENV === 'production' ? LogLevel.ERROR : LogLevel.INFO
+let currentLogLevel = process.env.NODE_ENV === 'production' ? LogLevel.ERROR : LogLevel.INFO
+
+export function setLogLevel(level: LogLevel) {
+  currentLogLevel = level
+}
 
 function formatMessage(level: LogLevel, message: string): string {
   const timestamp = new Date().toISOString()
