@@ -641,6 +641,8 @@ jobs:
   security-audit:
     name: 安全与质量审计
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
