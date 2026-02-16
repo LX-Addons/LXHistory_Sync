@@ -573,29 +573,28 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: extension-build
-          path: .
+          path: /tmp/extension-build
 
       - name: 验证构建产物
         run: |
           echo "📂 已下载构建产物内容:"
-          ls -la build/
+          ls -la /tmp/extension-build
           
-          # 优先寻找子目录，如果找不到则检查 build/ 目录下是否直接存在 manifest.json
-          PROD_BUILD=$(find build -type d -name "chrome-mv3-prod" -o -name "*-mv3-prod" | head -1)
+          # 递归寻找包含 manifest.json 的目录
+          PROD_BUILD=$(find /tmp/extension-build -name "manifest.json" -exec dirname {} \; | head -1)
           
-          if [ -z "$PROD_BUILD" ] && [ -f "build/manifest.json" ]; then
-            PROD_BUILD="build"
-          fi
-
           if [ -z "$PROD_BUILD" ] || [ ! -d "$PROD_BUILD" ]; then
-            echo "❌ 未找到有效的生产构建目录或文件"
+            echo "❌ 未找到有效的生产构建目录（未发现 manifest.json）"
             exit 1
           fi
           
           echo "✅ 找到生产构建目录: $PROD_BUILD"
           echo "PROD_BUILD=$PROD_BUILD" >> $GITHUB_ENV
+          # 同时设置一个标准路径供 Playwright 使用
+          mkdir -p build
+          cp -r "$PROD_BUILD"/* build/
           echo "📂 manifest.json 内容:"
-          cat "$PROD_BUILD/manifest.json" || echo "未找到 manifest.json"
+          cat "build/manifest.json"
 
       - name: 安装 rclone (用于 WebDAV 测试)
         run: |
