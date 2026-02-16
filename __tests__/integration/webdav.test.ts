@@ -7,6 +7,10 @@ describe('WebDAV 集成测试 (与真实服务通信)', () => {
     url: process.env.WEBDAV_URL || 'http://localhost:8080',
     username: process.env.WEBDAV_USER || 'testuser',
     password: process.env.WEBDAV_PASS || 'testpass',
+    encryption: {
+      enabled: false,
+      type: 'aes-256-gcm',
+    },
   }
 
   let client: { fetch: (path: string, options?: RequestInit) => Promise<Response> }
