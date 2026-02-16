@@ -376,8 +376,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: extension-build
-          path: |
-            ${{ env.PROD_BUILD_PATH }}/
+          path: build/
           retention-days: 7
 
       - name: Create Release
@@ -574,17 +573,25 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: extension-build
-          path: build/
+          path: .
 
       - name: 验证构建产物
         run: |
           echo "📂 已下载构建产物内容:"
           ls -la build/
+          
+          # 优先寻找子目录，如果找不到则检查 build/ 目录下是否直接存在 manifest.json
           PROD_BUILD=$(find build -type d -name "chrome-mv3-prod" -o -name "*-mv3-prod" | head -1)
-          if [ -z "$PROD_BUILD" ]; then
-            echo "❌ 未找到生产构建目录"
+          
+          if [ -z "$PROD_BUILD" ] && [ -f "build/manifest.json" ]; then
+            PROD_BUILD="build"
+          fi
+
+          if [ -z "$PROD_BUILD" ] || [ ! -d "$PROD_BUILD" ]; then
+            echo "❌ 未找到有效的生产构建目录或文件"
             exit 1
           fi
+          
           echo "✅ 找到生产构建目录: $PROD_BUILD"
           echo "PROD_BUILD=$PROD_BUILD" >> $GITHUB_ENV
           echo "📂 manifest.json 内容:"
