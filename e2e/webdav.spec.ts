@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test'
-import { chromium, type BrowserContext } from '@playwright/test'
+import { test, expect, chromium, type BrowserContext } from '@playwright/test'
 import { getExtensionId, getExtensionPath } from './fixtures/extension'
 
 test.describe('WebDAV 集成测试', () => {
@@ -10,9 +9,14 @@ test.describe('WebDAV 集成测试', () => {
     const extensionPath = getExtensionPath()
     context = await chromium.launchPersistentContext('', {
       headless: true,
-      args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
+      args: [
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`,
+      ],
     })
 
+    // 等待一段时间确保扩展加载完成
+    await new Promise((resolve) => setTimeout(resolve, 2000))
     extensionId = await getExtensionId(context)
   })
 
