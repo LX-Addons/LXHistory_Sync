@@ -1,13 +1,25 @@
 import { useState } from 'react'
-import { sendToBackground } from '@plasmohq/messaging'
 import { useStorage } from '@plasmohq/storage/hook'
 import { ensureHostPermission } from '~common/utils'
 import { Logger } from '~common/logger'
-import type { WebDAVConfig } from '~common/types'
+import type { WebDAVConfig, HistoryItem } from '~common/types'
 
 export interface SyncStatusState {
   message: string
   type: 'info' | 'success' | 'error'
+}
+
+interface SyncResponse {
+  success: boolean
+  data?: HistoryItem[]
+  error?: string
+}
+
+async function sendToBackground<Req, Res>(request: { name: string; body?: Req }): Promise<Res> {
+  const messaging = await import('@plasmohq/messaging')
+  return messaging.sendToBackground(
+    request as Parameters<typeof messaging.sendToBackground>[0]
+  ) as Promise<Res>
 }
 
 export function useSync(onSyncComplete?: () => void) {
@@ -37,7 +49,7 @@ export function useSync(onSyncComplete?: () => void) {
     setSyncStatus({ message: '正在同步到云端...', type: 'info' })
 
     try {
-      const response = await sendToBackground({
+      const response = await sendToBackground<{ action: 'SYNC_TO_CLOUD' }, SyncResponse>({
         name: 'history',
         body: { action: 'SYNC_TO_CLOUD' },
       })
@@ -73,7 +85,7 @@ export function useSync(onSyncComplete?: () => void) {
     setSyncStatus({ message: '正在从云端同步...', type: 'info' })
 
     try {
-      const response = await sendToBackground({
+      const response = await sendToBackground<{ action: 'SYNC_FROM_CLOUD' }, SyncResponse>({
         name: 'history',
         body: { action: 'SYNC_FROM_CLOUD' },
       })

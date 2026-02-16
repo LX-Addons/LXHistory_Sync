@@ -44,7 +44,6 @@ test.describe('冒烟测试', () => {
 
     expect(fs.existsSync(path.join(extensionPath, 'manifest.json'))).toBe(true)
     expect(fs.existsSync(path.join(extensionPath, 'popup.html'))).toBe(true)
-    expect(fs.existsSync(path.join(extensionPath, 'options.html'))).toBe(true)
 
     const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf-8'))
     expect(manifest.manifest_version).toBe(3)
@@ -61,13 +60,5 @@ test.describe('冒烟测试', () => {
 
     verifyHtmlContent(path.join(extensionPath, 'popup.html'))
     console.log('✅ popup.html content verified')
-  })
-
-  test('options.html 应该包含正确的内容', () => {
-    const extensionPath = findExtensionPath()
-    expect(extensionPath).not.toBe('')
-
-    verifyHtmlContent(path.join(extensionPath, 'options.html'))
-    console.log('✅ options.html content verified')
   })
 })

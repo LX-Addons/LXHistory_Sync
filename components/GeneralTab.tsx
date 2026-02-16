@@ -1,13 +1,19 @@
 import { useState, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { Storage } from '@plasmohq/storage'
-import { sendToBackground } from '@plasmohq/messaging'
 import type { IconSourceType, CheckboxStyleType, ExportResult } from '~common/types'
 import { useGeneralConfig } from '~hooks/useGeneralConfig'
 import CheckboxField from '~components/CheckboxField'
 import StatusMessage from '~components/StatusMessage'
 
 const storage = new Storage()
+
+async function sendToBackground<Req, Res>(request: { name: string; body?: Req }): Promise<Res> {
+  const messaging = await import('@plasmohq/messaging')
+  return messaging.sendToBackground(
+    request as Parameters<typeof messaging.sendToBackground>[0]
+  ) as Promise<Res>
+}
 
 export default function GeneralTab() {
   const { generalConfig, setGeneralConfig, status, handleSave, getCheckboxClassName } =
@@ -34,10 +40,12 @@ export default function GeneralTab() {
   const handleExport = async (format: 'EXPORT_JSON' | 'EXPORT_CSV') => {
     setExporting(true)
     try {
-      const result = (await sendToBackground({
-        name: 'export',
-        body: { action: format },
-      })) as ExportResult
+      const result = await sendToBackground<{ action: 'EXPORT_JSON' | 'EXPORT_CSV' }, ExportResult>(
+        {
+          name: 'export',
+          body: { action: format },
+        }
+      )
 
       if (result.success && result.data && result.filename) {
         const mimeType = format === 'EXPORT_JSON' ? 'application/json' : 'text/csv'
