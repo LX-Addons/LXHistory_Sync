@@ -147,9 +147,9 @@ describe('WebDAV Client', () => {
         .mockResolvedValueOnce({ ok: true, status: 200 })
 
       const promise = fetchWithRetry('https://example.com', {}, 3, 1000)
-      
+
       await vi.advanceTimersByTimeAsync(1000)
-      
+
       const response = await promise
       expect(response.ok).toBe(true)
       vi.useRealTimers()
@@ -430,13 +430,13 @@ describe('WebDAV Client', () => {
       })
 
       const promise = syncToCloud(mockHistoryItems)
-      
+
       // Prevent unhandled rejection
       promise.catch(() => {})
-      
+
       // Fast-forward through all retries
       await vi.runAllTimersAsync()
-      
+
       await expect(promise).rejects.toThrow()
       vi.useRealTimers()
     })
@@ -488,12 +488,12 @@ describe('WebDAV Client', () => {
       ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 500 })
 
       const promise = syncFromCloud()
-      
+
       // Prevent unhandled rejection
       promise.catch(() => {})
-      
+
       await vi.runAllTimersAsync()
-      
+
       await expect(promise).rejects.toThrow()
       vi.useRealTimers()
     })
