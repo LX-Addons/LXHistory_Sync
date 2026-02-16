@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useDebounce } from 'use-debounce'
 import { useStorage } from '@plasmohq/storage/hook'
 import { sendToBackground } from '@plasmohq/messaging'
-import type { PlasmoMessaging } from '@plasmohq/messaging'
 import type {
   HistoryItem as HistoryItemType,
   ThemeType,
@@ -41,10 +40,6 @@ interface HistoryResponse {
   success: boolean
   data?: HistoryItem[]
   error?: string
-}
-
-const sendToBackgroundMessage: PlasmoMessaging.SendFx<string> = async request => {
-  return sendToBackground(request as Parameters<typeof sendToBackground>[0])
 }
 
 interface GroupedHistoryItem {
@@ -248,7 +243,7 @@ const Popup = () => {
     setIsLoading(true)
     try {
       Logger.info('Loading history...')
-      const response = await sendToBackgroundMessage<HistoryRequestBody, HistoryResponse>({
+      const response = await sendToBackground<HistoryRequestBody, HistoryResponse>({
         name: 'history',
         body: { action: 'GET_HISTORY' },
       })
@@ -288,7 +283,7 @@ const Popup = () => {
     setIsSyncing(true)
     setSyncStatus({ message: '正在同步到云端...', type: 'info' })
     try {
-      const response = await sendToBackgroundMessage<HistoryRequestBody, HistoryResponse>({
+      const response = await sendToBackground<HistoryRequestBody, HistoryResponse>({
         name: 'history',
         body: { action: 'SYNC_TO_CLOUD' },
       })
@@ -331,7 +326,7 @@ const Popup = () => {
     setIsSyncing(true)
     setSyncStatus({ message: '正在从云端同步...', type: 'info' })
     try {
-      const response = await sendToBackgroundMessage<HistoryRequestBody, HistoryResponse>({
+      const response = await sendToBackground<HistoryRequestBody, HistoryResponse>({
         name: 'history',
         body: { action: 'SYNC_FROM_CLOUD' },
       })

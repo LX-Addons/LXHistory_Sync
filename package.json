@@ -84,7 +84,7 @@
       "https://*/*"
     ],
     "content_security_policy": {
-      "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https: ws://localhost:*; img-src 'self' data: https:"
+      "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https:; img-src 'self' data: https:"
     },
     "action": {
       "default_title": "LXHistory_Sync",

@@ -1,18 +1,13 @@
 import { useState, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { Storage } from '@plasmohq/storage'
-import type { PlasmoMessaging } from '@plasmohq/messaging'
+import { sendToBackground } from '@plasmohq/messaging'
 import type { IconSourceType, CheckboxStyleType, ExportResult } from '~common/types'
 import { useGeneralConfig } from '~hooks/useGeneralConfig'
 import CheckboxField from '~components/CheckboxField'
 import StatusMessage from '~components/StatusMessage'
 
 const storage = new Storage()
-
-const sendToBackgroundMessage: PlasmoMessaging.SendFx<string> = async request => {
-  const { sendToBackground } = await import('@plasmohq/messaging')
-  return sendToBackground(request as Parameters<typeof sendToBackground>[0])
-}
 
 export default function GeneralTab() {
   const { generalConfig, setGeneralConfig, status, handleSave, getCheckboxClassName } =
@@ -39,7 +34,7 @@ export default function GeneralTab() {
   const handleExport = async (format: 'EXPORT_JSON' | 'EXPORT_CSV') => {
     setExporting(true)
     try {
-      const result = (await sendToBackgroundMessage({
+      const result = (await sendToBackground({
         name: 'export',
         body: { action: format },
       })) as ExportResult
