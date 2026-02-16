@@ -60,20 +60,20 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
 
-      - name: Lint check
+      - name: ESLint 代码规范检查
         run: |
           if [ -f "package.json" ] && grep -q "eslint" package.json; then
             npm run lint
           else
-            echo "鈩癸笍 ESLint not configured, skipping lint check"
+            echo "ℹ️ 未配置 ESLint，跳过检查"
           fi
 
-      - name: Format check
+      - name: Prettier 格式检查
         run: |
           if [ -f "package.json" ] && grep -q "prettier" package.json; then
             npm run format:check
           else
-            echo "鈩癸笍 Prettier not configured, skipping format check"
+            echo "ℹ️ 未配置 Prettier，跳过检查"
           fi
 
       - name: Get project version
@@ -153,26 +153,26 @@ jobs:
           ZIP_PATH=$(find build -name "*.zip" | head -1)
           if [ -f "$ZIP_PATH" ]; then
             cp "$ZIP_PATH" "$TEMP_DIR/$ZIP_FILE"
-            echo "鉁?Copied zip to temp directory: $TEMP_DIR/$ZIP_FILE"
+            echo "✅ 已将压缩包复制到临时目录: $TEMP_DIR/$ZIP_FILE"
           fi
 
           echo "release_build_dir=$TEMP_DIR/$BUILD_DIR" >> $GITHUB_ENV
           echo "release_zip_file=$TEMP_DIR/$ZIP_FILE" >> $GITHUB_ENV
 
-      - name: Verify zip file creation
+      - name: 验证压缩包创建
         if: github.event_name == 'workflow_dispatch'
         run: |
           ZIP_FILE=$release_zip_file
           if [ -f "$ZIP_FILE" ]; then
-            echo "鉁?Zip file ready: $ZIP_FILE"
+            echo "✅ 压缩包已就绪: $ZIP_FILE"
             ls -la "$ZIP_FILE"
             ZIP_SIZE=$(wc -c < "$ZIP_FILE")
-            echo "鉁?Zip file size: $ZIP_SIZE bytes"
+            echo "✅ 压缩包大小: $ZIP_SIZE 字节"
             if [ "$ZIP_SIZE" -lt 1000 ]; then
-              echo "鈿狅笍 Zip file is very small, may be incomplete"
+              echo "⚠️ 压缩包非常小，可能不完整"
             fi
           else
-            echo "鉁?Zip file not found"
+            echo "❌ 未找到压缩包"
             exit 1
           fi
 
@@ -416,98 +416,83 @@ jobs:
 
           echo "📦 Creating $RELEASE_TYPE release: $TAG_NAME"
 
-            if [ "$RELEASE_TYPE" == "test" ]; then
-              echo "" >> $NOTES_FILE
-              echo "---" >> $NOTES_FILE
-              echo "" >> $NOTES_FILE
-              echo "> 鈿狅笍 **This is a TEST release**" >> $NOTES_FILE
-              echo "> " >> $NOTES_FILE
-              echo "> This release is for testing purposes only and may contain unstable features." >> $NOTES_FILE
-              echo "> For production use, please download the [latest stable release](../../releases/latest)." >> $NOTES_FILE
-              echo "> " >> $NOTES_FILE
-              echo "> **Build Info:**" >> $NOTES_FILE
-              echo "> - Build Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $NOTES_FILE
-              echo "> - Commit: ${{ github.sha }}" >> $NOTES_FILE
-              echo "> - Branch: ${{ github.ref_name }}" >> $NOTES_FILE
-            fi
-
-            if [ "$PRERELEASE" == "true" ] || [ "$RELEASE_TYPE" == "test" ]; then
-              gh release create "$TAG_NAME" \
-                --title "$RELEASE_TITLE" \
-                --notes-file "$NOTES_FILE" \
-                --prerelease \
-                "$ZIP_FILE"
-            else
-              gh release create "$TAG_NAME" \
-                --title "$RELEASE_TITLE" \
-                --notes-file "$NOTES_FILE" \
-                --latest \
-                "$ZIP_FILE"
-            fi
-            echo "鉁?Release created successfully: $TAG_NAME"
+          if [ "$RELEASE_TYPE" == "test" ]; then
+            echo "" >> $NOTES_FILE
+            echo "---" >> $NOTES_FILE
+            echo "" >> $NOTES_FILE
+            echo "> ⚠️ **这是一个测试版本**" >> $NOTES_FILE
+            echo "> " >> $NOTES_FILE
+            echo "> 此版本仅用于测试，可能包含不稳定功能。" >> $NOTES_FILE
+            echo "> 如需生产使用，请下载 [最新稳定版本](../../releases/latest)。" >> $NOTES_FILE
+            echo "> " >> $NOTES_FILE
+            echo "> **构建信息:**" >> $NOTES_FILE
+            echo "> - 构建时间: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $NOTES_FILE
+            echo "> - 提交哈希: ${{ github.sha }}" >> $NOTES_FILE
+            echo "> - 分支: ${{ github.ref_name }}" >> $NOTES_FILE
           fi
+
+          if [ "$PRERELEASE" == "true" ] || [ "$RELEASE_TYPE" == "test" ]; then
+            gh release create "$TAG_NAME" \
+              --title "$RELEASE_TITLE" \
+              --notes-file "$NOTES_FILE" \
+              --prerelease \
+              "$ZIP_FILE"
+          else
+            gh release create "$TAG_NAME" \
+              --title "$RELEASE_TITLE" \
+              --notes-file "$NOTES_FILE" \
+              --latest \
+              "$ZIP_FILE"
+          fi
+          echo "✅ 发布创建成功: $TAG_NAME"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Cleanup temp files
+      - name: 清理临时文件
         if: github.event_name == 'workflow_dispatch' && always()
         run: |
           if [ -n "$temp_dir" ] && [ -d "$temp_dir" ]; then
             rm -rf "$temp_dir"
-            echo "鉁?Cleaned up temporary files"
+            echo "✅ 已清理临时文件"
           fi
 
-      - name: Summary
+      - name: 任务总结
         run: |
-          echo "## Build Summary"
-          echo "鉁?All checks passed"
-          echo "鉁?Build completed successfully"
-          echo "鉁?TypeScript check passed"
-          echo "鉁?Dependency audit completed"
+          echo "## 构建总结" >> $GITHUB_STEP_SUMMARY
+          echo "✅ 所有检查均已通过" >> $GITHUB_STEP_SUMMARY
+          echo "✅ 构建成功完成" >> $GITHUB_STEP_SUMMARY
+          echo "✅ TypeScript 检查通过" >> $GITHUB_STEP_SUMMARY
+          echo "✅ 依赖审计完成" >> $GITHUB_STEP_SUMMARY
 
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             RELEASE_TYPE=${{ github.event.inputs.release_type }}
-            PRERELEASE=${{ github.event.inputs.prerelease }}
-
             echo ""
-            echo "## Release Information"
-            echo "馃摝 Release Type: $RELEASE_TYPE"
-            if [ "$RELEASE_TYPE" == "test" ]; then
-              echo "馃敄 Tag Format: v{VERSION}-test-{TIMESTAMP}"
-              echo "鈿狅笍  Pre-release: true (forced for test releases)"
-            else
-              echo "馃敄 Tag Format: v{VERSION}"
-              echo "鈿狅笍  Pre-release: $PRERELEASE"
-            fi
-            echo ""
-            echo "鉁?Extension packaged"
-            echo "鉁?Build artifacts uploaded"
-            echo "鉁?Release notes generated"
-            echo "鉁?Release created"
-            echo "鉁?Ready for deployment"
-          else
-            echo "鉁?Code inspection completed"
-            echo "鉁?No issues found"
-            echo "鈩癸笍 Package and release steps skipped (manual trigger only)"
+            echo "## 发布信息" >> $GITHUB_STEP_SUMMARY
+            echo "📦 发布类型: $RELEASE_TYPE" >> $GITHUB_STEP_SUMMARY
+            echo "✅ 扩展程序已打包" >> $GITHUB_STEP_SUMMARY
+            echo "✅ 构建资产已上传" >> $GITHUB_STEP_SUMMARY
+            echo "✅ 发布日志已生成" >> $GITHUB_STEP_SUMMARY
+            echo "✅ GitHub Release 已创建" >> $GITHUB_STEP_SUMMARY
           fi
 
   unit-test:
+    name: 单元测试
     runs-on: ubuntu-latest
     needs: build-and-check
     permissions:
       contents: read
       id-token: write
     steps:
-      - name: Checkout repository
+      - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: 设置 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: Cache node modules
+      - name: 缓存依赖
         uses: actions/cache@v4
         with:
           path: ~/.npm
@@ -515,14 +500,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - name: Install dependencies
+      - name: 安装依赖
         run: npm ci
 
-      - name: Run unit tests with coverage
+      - name: 运行单元测试并生成覆盖率报告
         run: npm run test:unit -- --coverage
+        env:
+          VITEST_OUTPUT_DIR: /tmp/test-results
+          VITEST_COVERAGE_DIR: /tmp/coverage
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
+      - name: 上传覆盖率报告到 Codecov
+        uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: /tmp/coverage/lcov.info
@@ -530,7 +518,7 @@ jobs:
           fail_ci_if_error: false
           verbose: true
 
-      - name: Upload test results
+      - name: 上传测试结果
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -539,21 +527,22 @@ jobs:
           retention-days: 7
 
   e2e-test:
+    name: 端到端测试 (E2E)
     runs-on: ubuntu-latest
     needs: build-and-check
     permissions:
       contents: read
     steps:
-      - name: Checkout repository
+      - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: 设置 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: Cache node modules
+      - name: 缓存依赖
         uses: actions/cache@v4
         with:
           path: ~/.npm
@@ -561,14 +550,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - name: Install dependencies
+      - name: 安装依赖
         run: npm ci
 
-      - name: Get Playwright version
+      - name: 获取 Playwright 版本
         id: playwright-version
         run: echo "version=$(npx playwright --version | cut -d' ' -f2)" >> $GITHUB_OUTPUT
 
-      - name: Cache Playwright browsers
+      - name: 缓存 Playwright 浏览器
         uses: actions/cache@v4
         id: playwright-cache
         with:
@@ -577,34 +566,62 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
 
-      - name: Install Playwright Browsers
+      - name: 安装 Playwright 浏览器
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps
 
-      - name: Download build artifacts
+      - name: 下载构建产物
         uses: actions/download-artifact@v4
         with:
           name: extension-build
           path: build/
 
-      - name: Verify downloaded build
+      - name: 验证构建产物
         run: |
-          echo "📂 Downloaded build contents:"
+          echo "📂 已下载构建产物内容:"
           ls -la build/
           PROD_BUILD=$(find build -type d -name "chrome-mv3-prod" -o -name "*-mv3-prod" | head -1)
           if [ -z "$PROD_BUILD" ]; then
-            echo "❌ Production build directory not found"
+            echo "❌ 未找到生产构建目录"
             exit 1
           fi
-          echo "✅ Production build directory found: $PROD_BUILD"
+          echo "✅ 找到生产构建目录: $PROD_BUILD"
           echo "PROD_BUILD=$PROD_BUILD" >> $GITHUB_ENV
-          echo "📂 manifest.json:"
-          cat "$PROD_BUILD/manifest.json" || echo "manifest.json not found"
+          echo "📂 manifest.json 内容:"
+          cat "$PROD_BUILD/manifest.json" || echo "未找到 manifest.json"
 
-      - name: Run E2E tests
+      - name: 安装 rclone (用于 WebDAV 测试)
+        run: |
+          sudo -v && curl https://rclone.org/install.sh | sudo bash
+
+      - name: 启动临时 WebDAV 服务
+        run: |
+          mkdir -p /tmp/webdav-data
+          nohup rclone serve webdav /tmp/webdav-data \
+            --addr :8080 \
+            --user testuser \
+            --pass testpass \
+            --vfs-cache-mode full \
+            --log-file /tmp/webdav.log > /dev/null 2>&1 &
+          echo "WEBDAV_URL=http://localhost:8080" >> $GITHUB_ENV
+          echo "WEBDAV_USER=testuser" >> $GITHUB_ENV
+          echo "WEBDAV_PASS=testpass" >> $GITHUB_ENV
+          # 等待服务启动并检查状态
+          sleep 5
+          if ! curl -u testuser:testpass http://localhost:8080 > /dev/null 2>&1; then
+            echo "❌ WebDAV 服务启动失败"
+            cat /tmp/webdav.log
+            exit 1
+          fi
+          echo "✅ WebDAV 服务已就绪"
+
+      - name: 运行 E2E 测试
         run: npm run test:e2e
+        env:
+          CI: true
+          PLAYWRIGHT_HTML_REPORT: /tmp/playwright-report
 
-      - name: Upload Playwright report
+      - name: 上传 E2E 测试报告
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -613,3 +630,34 @@ jobs:
             /tmp/playwright-report/
             test-results/
           retention-days: 7
+
+  security-audit:
+    name: 安全与质量审计
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 初始化 CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: 运行 CodeQL 分析
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
+
+      - name: 重复代码检测 (jscpd)
+        run: |
+          npx jscpd . --ignore "node_modules,build,dist,coverage" --output /tmp/jscpd-report
+        continue-on-error: true
+
+      - name: 上传重复代码报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jscpd-report
+          path: /tmp/jscpd-report
