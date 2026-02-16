@@ -66,8 +66,7 @@ export function useHistory() {
     })
 
     Object.entries(itemsByDomain).forEach(([domain, domainItems], domainIndex) => {
-      // Use a unique ID for the domain group
-      const domainId = `domain-${domain}-${domainIndex}-${Math.random().toString(36).substr(2, 9)}`
+      const domainId = `domain-${domain}-${domainIndex}`
       grouped.push({
         id: domainId,
         type: 'domain',

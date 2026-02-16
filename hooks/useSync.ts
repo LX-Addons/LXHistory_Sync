@@ -3,17 +3,7 @@ import { sendToBackground } from '@plasmohq/messaging'
 import { useStorage } from '@plasmohq/storage/hook'
 import { ensureHostPermission } from '~common/utils'
 import { Logger } from '~common/logger'
-import type { WebDAVConfig, HistoryItem } from '~common/types'
-
-interface HistoryRequestBody {
-  action: 'SYNC_TO_CLOUD' | 'SYNC_FROM_CLOUD'
-}
-
-interface HistoryResponse {
-  success: boolean
-  data?: HistoryItem[]
-  error?: string
-}
+import type { WebDAVConfig } from '~common/types'
 
 export interface SyncStatusState {
   message: string
@@ -47,7 +37,7 @@ export function useSync(onSyncComplete?: () => void) {
     setSyncStatus({ message: '正在同步到云端...', type: 'info' })
 
     try {
-      const response = await sendToBackground<HistoryRequestBody, HistoryResponse>({
+      const response = await sendToBackground({
         name: 'history',
         body: { action: 'SYNC_TO_CLOUD' },
       })
@@ -83,7 +73,7 @@ export function useSync(onSyncComplete?: () => void) {
     setSyncStatus({ message: '正在从云端同步...', type: 'info' })
 
     try {
-      const response = await sendToBackground<HistoryRequestBody, HistoryResponse>({
+      const response = await sendToBackground({
         name: 'history',
         body: { action: 'SYNC_FROM_CLOUD' },
       })
