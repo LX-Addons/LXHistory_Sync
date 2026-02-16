@@ -590,11 +590,11 @@ jobs:
           
           echo "✅ 找到生产构建目录: $PROD_BUILD"
           echo "PROD_BUILD=$PROD_BUILD" >> $GITHUB_ENV
-          # 同时设置一个标准路径供 Playwright 使用
-          mkdir -p build
-          cp -r "$PROD_BUILD"/* build/
+          # 创建标准路径结构供 Playwright 使用
+          mkdir -p build/chrome-mv3-prod
+          cp -r "$PROD_BUILD"/* build/chrome-mv3-prod/
           echo "📂 manifest.json 内容:"
-          cat "build/manifest.json"
+          cat "build/chrome-mv3-prod/manifest.json"
 
       - name: 安装 rclone (用于 WebDAV 测试)
         run: |
