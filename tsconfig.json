@@ -22,5 +22,6 @@
       "~*": ["./*"]
     }
   },
-  "include": [".plasmo/index.d.ts", "**/*.ts", "**/*.tsx"]
+  "include": [".plasmo/index.d.ts", "**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", "Cookie_Manager_Pro", "build", "dist", "coverage"]
 }

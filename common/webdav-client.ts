@@ -11,7 +11,6 @@ import {
 } from './config-manager'
 import { mergeHistory } from './history'
 import { WEBDAV_FILENAME } from '~store'
-import { APP_NAME } from './utils'
 import { Logger } from './logger'
 import type { CloudSyncResult, HistoryItem, WebDAVConfig } from './types'
 

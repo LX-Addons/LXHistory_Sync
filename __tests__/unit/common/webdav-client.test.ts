@@ -16,7 +16,7 @@ import {
 import * as crypto from '~/common/crypto'
 import * as configManager from '~/common/config-manager'
 import * as history from '~/common/history'
-import { WEBDAV_FILENAME } from '~store'
+import type { WebDAVConfig } from '~/common/types'
 
 vi.mock('~/common/crypto')
 vi.mock('~/common/config-manager')
@@ -27,14 +27,14 @@ vi.mock('~store', () => ({
 }))
 
 describe('WebDAV Client', () => {
-  const mockConfig = {
+  const mockConfig: WebDAVConfig = {
     url: 'https://example.com/webdav',
     username: 'user',
     password: 'password',
     encryption: {
       enabled: false,
       key: '',
-      type: 'AES-GCM' as const
+      type: 'aes-256-gcm'
     }
   }
 
@@ -125,9 +125,9 @@ describe('WebDAV Client', () => {
     })
 
     it('should return encrypted content when encryption is enabled', async () => {
-      const encryptedConfig = {
+      const encryptedConfig: WebDAVConfig = {
         ...mockConfig,
-        encryption: { enabled: true, key: 'secret', type: 'AES-GCM' as const }
+        encryption: { enabled: true, key: 'secret', type: 'aes-256-gcm' }
       }
       vi.mocked(crypto.generateSalt).mockReturnValue('salt')
       vi.mocked(crypto.encrypt).mockResolvedValue('encrypted-data')
@@ -180,9 +180,9 @@ describe('WebDAV Client', () => {
     })
 
     it('should decrypt response when encryption is enabled', async () => {
-      const encryptedConfig = {
+      const encryptedConfig: WebDAVConfig = {
         ...mockConfig,
-        encryption: { enabled: true, key: 'secret', type: 'AES-GCM' as const }
+        encryption: { enabled: true, key: 'secret', type: 'aes-256-gcm' }
       }
       const mockBlob = {
         arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(10))
