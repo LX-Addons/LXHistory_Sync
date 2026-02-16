@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import type { FormEvent } from 'react'
 import { Storage } from '@plasmohq/storage'
 import type { PlasmoMessaging } from '@plasmohq/messaging'
 import type { IconSourceType, CheckboxStyleType, ExportResult } from '~common/types'
@@ -30,7 +31,7 @@ export default function GeneralTab() {
     checkMasterPassword()
   }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     await handleSave(e)
     setLocalStatus(status)
   }

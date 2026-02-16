@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useDebounce } from 'use-debounce'
 import { useStorage } from '@plasmohq/storage/hook'
+import { sendToBackground } from '@plasmohq/messaging'
 import type { PlasmoMessaging } from '@plasmohq/messaging'
-import { Virtuoso } from 'react-virtuoso'
 import type {
   HistoryItem as HistoryItemType,
   ThemeType,
@@ -17,11 +17,19 @@ import SyncProgress from '~components/SyncProgress'
 import { ErrorBoundary } from '~components/ErrorBoundary'
 import SkeletonLoader from '~components/SkeletonLoader'
 import { DateGroupItem, DomainGroupItem } from '~components/popup'
+import WebDAVTab from '~components/WebDAVTab'
+import ThemeTab from '~components/ThemeTab'
+import GeneralTab from '~components/GeneralTab'
+import SecurityTab from '~components/SecurityTab'
+import SyncHistoryTab from '~components/SyncHistoryTab'
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG, DEFAULT_GENERAL_CONFIG } from '~store'
 import { extractDomain, applyTheme, ensureHostPermission } from '~common/utils'
 import { Logger } from '~common/logger'
 import type { HistoryItem } from '~common/types'
 import './style.css'
+
+type ViewType = 'history' | 'settings'
+type SettingsTabType = 'webdav' | 'theme' | 'general' | 'security' | 'sync_history'
 
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -36,7 +44,6 @@ interface HistoryResponse {
 }
 
 const sendToBackgroundMessage: PlasmoMessaging.SendFx<string> = async request => {
-  const { sendToBackground } = await import('@plasmohq/messaging')
   return sendToBackground(request as Parameters<typeof sendToBackground>[0])
 }
 
@@ -47,7 +54,9 @@ interface GroupedHistoryItem {
   isExpanded?: boolean
 }
 
-const Popup: React.FC = () => {
+const Popup = () => {
+  const [currentView, setCurrentView] = useState<ViewType>('history')
+  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTabType>('webdav')
   const [allHistoryItems, setAllHistoryItems] = useState<GroupedHistoryItem[]>([])
   const [historyItems, setHistoryItems] = useState<GroupedHistoryItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -350,101 +359,163 @@ const Popup: React.FC = () => {
     <ErrorBoundary>
       <div className="container">
         <div className="card">
-          <div className="title-bar">
-            <h1>历史记录</h1>
-            <div className="action-buttons">
-              <button
-                className="action-button"
-                title="设置"
-                aria-label="打开设置页面"
-                onClick={() => chrome.runtime.openOptionsPage()}
-              >
-                ⚙️
-              </button>
-            </div>
-          </div>
-
-          {hasWebDAVConfig && (
-            <div className="sync-buttons-container">
-              {isSyncing ? (
-                <SyncProgress isSyncing={isSyncing} message={syncStatus?.message} />
-              ) : (
-                <>
-                  <div className="button-group">
-                    <button
-                      className="btn-primary"
-                      onClick={handleSyncToCloud}
-                      disabled={isSyncing}
-                    >
-                      同步到云端
-                    </button>
-                    <button
-                      className="btn-secondary"
-                      onClick={handleSyncFromCloud}
-                      disabled={isSyncing}
-                    >
-                      从云端同步
-                    </button>
-                  </div>
-                  <SyncStatus status={syncStatus} />
-                </>
-              )}
-            </div>
-          )}
-
-          {generalConfig.searchEnabled && (
-            <div className="search-container">
-              <input
-                type="text"
-                className="search-box"
-                placeholder="搜索历史记录..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-            </div>
-          )}
-
-          <div className="history-list-container">
-            {isLoading ? (
-              <SkeletonLoader count={10} />
-            ) : historyItems.length === 0 ? (
-              <div className="no-history">
-                <p>暂无浏览记录</p>
-                <p className="hint">浏览网页后，历史记录将显示在这里</p>
+          {currentView === 'history' ? (
+            <>
+              <div className="title-bar">
+                <h1>历史记录</h1>
+                <div className="action-buttons">
+                  <button
+                    className="action-button"
+                    title="设置"
+                    aria-label="打开设置"
+                    onClick={() => setCurrentView('settings')}
+                  >
+                    ⚙️
+                  </button>
+                </div>
               </div>
-            ) : (
-              <Virtuoso
-                data={historyItems}
-                itemContent={(index, item) => {
-                  if (item.type === 'date') {
-                    return <DateGroupItem date={item.data as string} />
-                  } else if (item.type === 'domain') {
-                    const domainData = item.data as { domain: string; count: number }
-                    return (
-                      <DomainGroupItem
-                        domain={domainData.domain}
-                        count={domainData.count}
-                        isExpanded={expandedDomains.has(item.id)}
-                        iconSource={generalConfig.iconSource}
-                        onToggle={() => handleDomainClick(item.id)}
-                      />
-                    )
-                  } else {
-                    if (!shouldShowHistoryItem(index, item)) {
-                      return null
-                    }
-                    return (
-                      <HistoryItemComponent
-                        item={item.data as HistoryItemType}
-                        showUrls={generalConfig.showUrls}
-                        iconSource={generalConfig.iconSource}
-                      />
-                    )
-                  }
-                }}
-              />
-            )}
-          </div>
+
+              {hasWebDAVConfig && (
+                <div className="sync-buttons-container">
+                  {isSyncing ? (
+                    <SyncProgress isSyncing={isSyncing} message={syncStatus?.message} />
+                  ) : (
+                    <>
+                      <div className="button-group">
+                        <button
+                          className="btn-primary"
+                          onClick={handleSyncToCloud}
+                          disabled={isSyncing}
+                        >
+                          同步到云端
+                        </button>
+                        <button
+                          className="btn-secondary"
+                          onClick={handleSyncFromCloud}
+                          disabled={isSyncing}
+                        >
+                          从云端同步
+                        </button>
+                      </div>
+                      <SyncStatus status={syncStatus} />
+                    </>
+                  )}
+                </div>
+              )}
+
+              {generalConfig.searchEnabled && (
+                <div className="search-container">
+                  <input
+                    type="text"
+                    className="search-box"
+                    placeholder="搜索历史记录..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="history-list-container">
+                {isLoading ? (
+                  <SkeletonLoader count={10} />
+                ) : historyItems.length === 0 ? (
+                  <div className="no-history">
+                    <p>暂无浏览记录</p>
+                    <p className="hint">浏览网页后，历史记录将显示在这里</p>
+                  </div>
+                ) : (
+                  <div className="history-list">
+                    {historyItems.map((item, index) => {
+                      if (item.type === 'date') {
+                        return <DateGroupItem key={item.id} date={item.data as string} />
+                      } else if (item.type === 'domain') {
+                        const domainData = item.data as { domain: string; count: number }
+                        return (
+                          <DomainGroupItem
+                            key={item.id}
+                            domain={domainData.domain}
+                            count={domainData.count}
+                            isExpanded={expandedDomains.has(item.id)}
+                            iconSource={generalConfig.iconSource}
+                            onToggle={() => handleDomainClick(item.id)}
+                          />
+                        )
+                      } else {
+                        if (!shouldShowHistoryItem(index, item)) {
+                          return null
+                        }
+                        return (
+                          <HistoryItemComponent
+                            key={item.id}
+                            item={item.data as HistoryItemType}
+                            showUrls={generalConfig.showUrls}
+                            iconSource={generalConfig.iconSource}
+                          />
+                        )
+                      }
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="title-bar">
+                <button
+                  className="action-button back-button"
+                  title="返回"
+                  aria-label="返回历史记录"
+                  onClick={() => setCurrentView('history')}
+                >
+                  ←
+                </button>
+                <h1>设置</h1>
+              </div>
+
+              <div className="popup-settings-tabs">
+                <div className="tab-buttons">
+                  <button
+                    className={`tab-button ${activeSettingsTab === 'webdav' ? 'active' : ''}`}
+                    onClick={() => setActiveSettingsTab('webdav')}
+                  >
+                    WebDAV
+                  </button>
+                  <button
+                    className={`tab-button ${activeSettingsTab === 'theme' ? 'active' : ''}`}
+                    onClick={() => setActiveSettingsTab('theme')}
+                  >
+                    主题
+                  </button>
+                  <button
+                    className={`tab-button ${activeSettingsTab === 'general' ? 'active' : ''}`}
+                    onClick={() => setActiveSettingsTab('general')}
+                  >
+                    通用
+                  </button>
+                  <button
+                    className={`tab-button ${activeSettingsTab === 'security' ? 'active' : ''}`}
+                    onClick={() => setActiveSettingsTab('security')}
+                  >
+                    安全
+                  </button>
+                  <button
+                    className={`tab-button ${activeSettingsTab === 'sync_history' ? 'active' : ''}`}
+                    onClick={() => setActiveSettingsTab('sync_history')}
+                  >
+                    同步
+                  </button>
+                </div>
+              </div>
+
+              <div className="popup-settings-content">
+                {activeSettingsTab === 'webdav' && <WebDAVTab />}
+                {activeSettingsTab === 'theme' && <ThemeTab />}
+                {activeSettingsTab === 'general' && <GeneralTab />}
+                {activeSettingsTab === 'security' && <SecurityTab />}
+                {activeSettingsTab === 'sync_history' && <SyncHistoryTab />}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </ErrorBoundary>

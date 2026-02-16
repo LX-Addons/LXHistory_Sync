@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { useMasterPassword } from '~hooks/useMasterPassword'
 import StatusMessage from '~components/StatusMessage'
 
@@ -21,7 +22,7 @@ export default function SecurityTab() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  const handleSubmitWithStatus = async (e: React.FormEvent) => {
+  const handleSubmitWithStatus = async (e: FormEvent) => {
     await handleSubmit(e)
     setLocalStatus(status)
   }

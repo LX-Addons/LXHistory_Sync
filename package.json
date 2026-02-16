@@ -3,6 +3,7 @@
   "displayName": "LXHistory_Sync",
   "version": "1.1.0",
   "description": "LXHistory_Sync - WebDAV 历史记录同步扩展",
+  "type": "module",
   "packageManager": "npm@10.0.0",
   "engines": {
     "node": ">=18.0.0"
@@ -35,11 +36,10 @@
   },
   "dependencies": {
     "@plasmohq/messaging": "^0.7.2",
-    "@plasmohq/storage": "^1.15.0",
+    "@plasmohq/storage": "1.10.0",
     "plasmo": "^0.90.5",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "react-virtuoso": "^4.5.1",
     "use-debounce": "^10.1.0"
   },
   "devDependencies": {
@@ -66,7 +66,13 @@
     "vitest": "^4.0.18"
   },
   "overrides": {
-    "msgpackr": ">=1.10.1"
+    "msgpackr": ">=1.10.1",
+    "esbuild": "0.25.0"
+  },
+  "targets": {
+    "default": {
+      "includeNodeModules": true
+    }
   },
   "manifest": {
     "permissions": [
@@ -83,8 +89,7 @@
     "action": {
       "default_title": "LXHistory_Sync",
       "default_popup": "popup.html"
-    },
-    "options_page": "options.html"
+    }
   },
   "plasmo": {
     "assets": [

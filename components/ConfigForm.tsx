@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
+import type { FC, FormEvent } from 'react'
 import type { WebDAVConfig, EncryptionType, CheckboxStyleType, KeyStrength } from '~common/types'
 import { validateUrl, validatePassword, validateEncryptionKey } from '~common/webdav'
 import { getCheckboxClassName } from '~common/utils'
@@ -8,11 +9,11 @@ interface ConfigFormProps {
   config: WebDAVConfig
   status: string
   onConfigChange: (config: WebDAVConfig) => void
-  onSubmit: (e: React.FormEvent) => void
+  onSubmit: (e: FormEvent) => void
   checkboxStyle?: CheckboxStyleType
 }
 
-const ConfigForm: React.FC<ConfigFormProps> = ({
+const ConfigForm: FC<ConfigFormProps> = ({
   config,
   status,
   onConfigChange,
@@ -102,7 +103,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
     }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
 
     const urlValidation = validateUrl(config.url)

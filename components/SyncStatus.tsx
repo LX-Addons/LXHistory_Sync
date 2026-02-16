@@ -1,11 +1,11 @@
-import React from 'react'
+import type { FC } from 'react'
 import { type StatusMessageData } from './StatusMessage'
 
 interface SyncStatusProps {
   status: StatusMessageData | null
 }
 
-const SyncStatus: React.FC<SyncStatusProps> = ({ status }) => {
+const SyncStatus: FC<SyncStatusProps> = ({ status }) => {
   if (!status) {
     return null
   }
