@@ -23,11 +23,7 @@ on:
         default: false
         type: boolean
 
-permissions:
-  actions: write
-  contents: write
-  pull-requests: write
-  security-events: write
+permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -42,6 +38,9 @@ jobs:
     name: 准备环境
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
     outputs:
       cache_key: ${{ steps.cache-key.outputs.key }}
       artifact_retention: ${{ steps.retention.outputs.days }}
@@ -135,6 +134,8 @@ jobs:
     name: 代码检查
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     needs: [setup]
     steps:
       - name: 检出仓库
@@ -185,6 +186,8 @@ jobs:
     name: 单元测试
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
     needs: [setup]
     strategy:
       matrix:
@@ -240,6 +243,9 @@ jobs:
     name: 安全扫描
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
     needs: [setup]
     steps:
       - name: 检出仓库
@@ -312,6 +318,8 @@ jobs:
     name: 构建扩展
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
     needs: [setup, lint, test]
     if: always() && (needs.lint.result == 'success') && (needs.test.result == 'success')
     outputs:
@@ -436,6 +444,8 @@ jobs:
     name: E2E测试
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
     needs: [setup, build]
     if: always() && needs.build.result == 'success' && github.event.inputs.skip_e2e != 'true'
     steps:
@@ -499,6 +509,9 @@ jobs:
     name: PR评论
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
     needs: [setup, lint, test, security, build, e2e]
     if: always() && github.event_name == 'pull_request'
     steps:
@@ -612,6 +625,8 @@ jobs:
     name: 创建发布
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write
     needs: [setup, build, e2e, security]
     if: |
       always() &&
@@ -724,6 +739,8 @@ jobs:
     name: 失败通知
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
     needs: [setup, lint, test, security, build, e2e]
     if: failure() && github.event_name != 'pull_request'
     steps:
