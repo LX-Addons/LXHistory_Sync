@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 jobs:
   security-audit:
@@ -31,7 +32,12 @@ jobs:
         run: npm audit --audit-level=moderate
         continue-on-error: true
       
-      - name: 🔍 代码安全扫描
+      - name: 🔍 初始化 CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+      
+      - name: 🔍 执行 CodeQL 分析
         uses: github/codeql-action/analyze@v3
         continue-on-error: true
       

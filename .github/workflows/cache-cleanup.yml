@@ -14,11 +14,26 @@ jobs:
   cleanup:
     name: 清理缓存
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     steps:
       - name: 🗑️ 清理 PR 缓存
         run: |
           echo "📋 正在获取缓存列表..."
-          cacheKeysForPR=$(gh cache list --ref $BRANCH --limit 100 --json id --jq '.[].id')
+          
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            BRANCH="refs/pull/${{ github.event.pull_request.number }}/merge"
+          else
+            BRANCH="${{ github.ref }}"
+          fi
+          
+          echo "📌 目标分支: $BRANCH"
+          
+          cacheKeysForPR=$(gh cache list --ref "$BRANCH" --limit 100 --json id --jq '.[].id')
+          
+          if [ -z "$cacheKeysForPR" ]; then
+            echo "ℹ️ 未找到该分支的缓存"
+            exit 0
+          fi
           
           echo "🗑️ 正在删除缓存..."
           for cacheKey in $cacheKeysForPR
@@ -31,4 +46,3 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          BRANCH: refs/pull/${{ github.event.pull_request.number }}/merge

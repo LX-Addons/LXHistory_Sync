@@ -188,7 +188,7 @@ jobs:
           gh release create "$TAG_NAME" \
             --title "🚀 Release $TAG_NAME" \
             --notes-file "${{ steps.release_notes.outputs.notes_file }}" \
-            "$zip_path"
+            "${{ env.zip_path }}"
           echo "✅ 发布创建成功: $TAG_NAME"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
