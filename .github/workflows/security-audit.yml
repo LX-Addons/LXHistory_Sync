@@ -1,6 +1,10 @@
 name: 🔒 安全审计
 
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   schedule:
     - cron: '0 2 * * 1'
   workflow_dispatch:
@@ -8,6 +12,10 @@ on:
 permissions:
   contents: read
   security-events: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   security-audit:
