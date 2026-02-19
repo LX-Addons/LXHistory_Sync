@@ -35,7 +35,6 @@ jobs:
             console.log(`正在获取仓库 ${owner}/${repo} 的缓存列表...`);
             
             let cachesCleared = 0;
-            let page = 1;
             const perPage = 100;
             
             while (true) {
@@ -43,35 +42,32 @@ jobs:
                 owner,
                 repo,
                 per_page: perPage,
-                page: page
+                page: 1
               });
               
               if (!caches || caches.length === 0) {
                 break;
               }
               
-              for (const cache of caches) {
-                const shouldDelete = !prefix || cache.key.startsWith(prefix);
-                
-                if (shouldDelete) {
-                  console.log(`删除缓存: ${cache.key} (ID: ${cache.id})`);
-                  try {
-                    await github.rest.actions.deleteActionsCacheById({
-                      owner,
-                      repo,
-                      cache_id: cache.id
-                    });
-                    cachesCleared++;
-                  } catch (error) {
-                    console.error(`删除缓存 ${cache.key} 失败:`, error.message);
-                  }
-                }
-              }
+              const toDelete = caches.filter(cache => !prefix || cache.key.startsWith(prefix));
               
-              if (caches.length < perPage) {
+              if (toDelete.length === 0) {
                 break;
               }
-              page++;
+              
+              for (const cache of toDelete) {
+                console.log(`删除缓存: ${cache.key} (ID: ${cache.id})`);
+                try {
+                  await github.rest.actions.deleteActionsCacheById({
+                    owner,
+                    repo,
+                    cache_id: cache.id
+                  });
+                  cachesCleared++;
+                } catch (error) {
+                  console.error(`删除缓存 ${cache.key} 失败:`, error.message);
+                }
+              }
             }
             
             console.log(`\n✅ 成功清除了 ${cachesCleared} 个缓存`);

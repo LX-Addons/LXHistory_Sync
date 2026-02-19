@@ -114,18 +114,18 @@ jobs:
               return '❓';
             };
 
-            const body = `## 🔍 依赖审查摘要
+            let body = '## 🔍 依赖审查摘要\n\n';
+            body += '| 检查项 | 状态 | 详情 |\n';
+            body += '|-------|--------|---------|\n';
+            body += `| 安全审计 | ${statusEmoji(auditStatus)} | ${auditStatus === 'clean' ? '无漏洞' : '需要审查'} |\n`;
+            body += `| 许可证检查 | ${statusEmoji(licenseStatus)} | ${licenseStatus === 'ok' ? '合规' : '检测到违规'} |\n`;
+            body += `| 依赖信息 | 📦 | ${depCount} 个直接依赖，总体积 ${depSize} |\n`;
 
-            | 检查项 | 状态 | 详情 |
-            |-------|--------|---------|
-            | 安全审计 | ${statusEmoji(auditStatus)} | ${auditStatus === 'clean' ? '无漏洞' : '需要审查'} |
-            | 许可证检查 | ${statusEmoji(licenseStatus)} | ${licenseStatus === 'ok' ? '合规' : '检测到违规'} |
-            | 依赖信息 | 📦 | ${depCount} 个直接依赖，总体积 ${depSize} |
+            if (auditStatus === 'warning' || licenseStatus === 'violation') {
+              body += '\n⚠️ **需要处理**：请查看 [工作流摘要](' + process.env.GITHUB_SERVER_URL + '/' + process.env.GITHUB_REPOSITORY + '/actions/runs/' + process.env.GITHUB_RUN_ID + ') 中的审计结果。\n';
+            }
 
-            ${auditStatus === 'warning' || licenseStatus === 'violation' ? '⚠️ **需要处理**：请查看 [工作流摘要](' + process.env.GITHUB_SERVER_URL + '/' + process.env.GITHUB_REPOSITORY + '/actions/runs/' + process.env.GITHUB_RUN_ID + ') 中的审计结果。' : ''}
-            `;
-
-            github.rest.issues.createComment({
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
