@@ -8,8 +8,18 @@ export enum LogLevel {
 
 let currentLogLevel = process.env.NODE_ENV === 'production' ? LogLevel.ERROR : LogLevel.INFO
 
+const moduleLogLevels: Record<string, LogLevel> = {}
+
 export function setLogLevel(level: LogLevel) {
   currentLogLevel = level
+}
+
+export function setModuleLogLevel(module: string, level: LogLevel) {
+  moduleLogLevels[module] = level
+}
+
+export function getModuleLogLevel(module: string): LogLevel | undefined {
+  return moduleLogLevels[module]
 }
 
 function formatMessage(level: LogLevel, message: string): string {
@@ -18,32 +28,40 @@ function formatMessage(level: LogLevel, message: string): string {
   return `[${timestamp}] [${levelName}] ${message}`
 }
 
-function shouldLog(level: LogLevel): boolean {
-  return level >= currentLogLevel
+function shouldLog(level: LogLevel, specificLevel?: LogLevel): boolean {
+  return level >= (specificLevel ?? currentLogLevel)
 }
 
 export class Logger {
-  static debug(message: string, data?: unknown): void {
-    if (shouldLog(LogLevel.DEBUG)) {
-      console.debug(formatMessage(LogLevel.DEBUG, message), data)
+  static debug(message: string, data?: unknown, module?: string): void {
+    const level = module ? (moduleLogLevels[module] ?? currentLogLevel) : currentLogLevel
+    if (shouldLog(LogLevel.DEBUG, level)) {
+      const prefix = module ? `[${module}] ` : ''
+      console.debug(formatMessage(LogLevel.DEBUG, prefix + message), data)
     }
   }
 
-  static info(message: string, data?: unknown): void {
-    if (shouldLog(LogLevel.INFO)) {
-      console.info(formatMessage(LogLevel.INFO, message), data)
+  static info(message: string, data?: unknown, module?: string): void {
+    const level = module ? (moduleLogLevels[module] ?? currentLogLevel) : currentLogLevel
+    if (shouldLog(LogLevel.INFO, level)) {
+      const prefix = module ? `[${module}] ` : ''
+      console.info(formatMessage(LogLevel.INFO, prefix + message), data)
     }
   }
 
-  static warn(message: string, data?: unknown): void {
-    if (shouldLog(LogLevel.WARN)) {
-      console.warn(formatMessage(LogLevel.WARN, message), data)
+  static warn(message: string, data?: unknown, module?: string): void {
+    const level = module ? (moduleLogLevels[module] ?? currentLogLevel) : currentLogLevel
+    if (shouldLog(LogLevel.WARN, level)) {
+      const prefix = module ? `[${module}] ` : ''
+      console.warn(formatMessage(LogLevel.WARN, prefix + message), data)
     }
   }
 
-  static error(message: string, data?: unknown): void {
-    if (shouldLog(LogLevel.ERROR)) {
-      console.error(formatMessage(LogLevel.ERROR, message), data)
+  static error(message: string, data?: unknown, module?: string): void {
+    const level = module ? (moduleLogLevels[module] ?? currentLogLevel) : currentLogLevel
+    if (shouldLog(LogLevel.ERROR, level)) {
+      const prefix = module ? `[${module}] ` : ''
+      console.error(formatMessage(LogLevel.ERROR, prefix + message), data)
     }
   }
 }

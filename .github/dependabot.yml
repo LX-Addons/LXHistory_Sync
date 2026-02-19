@@ -1,37 +1,101 @@
 version: 2
-updates:
-  - package-ecosystem: 'npm'
-    directory: '/'
-    schedule:
-      interval: 'weekly'
-      day: 'monday'
-      time: '09:00'
-      timezone: 'Asia/Shanghai'
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: 'chore'
-      include: 'scope'
-    labels:
-      - 'dependencies'
-    ignore:
-      - dependency-name: 'plasmo'
-        update-types: ['version-update:semver-major']
-      - dependency-name: 'react'
-        update-types: ['version-update:semver-major']
-      - dependency-name: 'react-dom'
-        update-types: ['version-update:semver-major']
 
-  - package-ecosystem: 'github-actions'
-    directory: '/'
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
-      interval: 'weekly'
-      day: 'monday'
-      time: '09:00'
-      timezone: 'Asia/Shanghai'
-    open-pull-requests-limit: 3
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 10
+    rebase-strategy: "auto"
     commit-message:
-      prefix: 'ci'
-      include: 'scope'
+      prefix: "deps"
+      include: "scope"
     labels:
-      - 'ci'
-      - 'dependencies'
+      - "dependencies"
+      - "待审核"
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+    groups:
+      production-patch:
+        dependency-type: "production"
+        update-types:
+          - "patch"
+      production-minor:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+      development-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          - "vitest*"
+          - "eslint*"
+          - "@typescript-eslint/*"
+          - "@testing-library/*"
+          - "@types/*"
+          - "prettier*"
+      testing-framework:
+        patterns:
+          - "vitest*"
+          - "@vitest/*"
+          - "happy-dom"
+          - "jsdom"
+      linting-tools:
+        patterns:
+          - "eslint*"
+          - "@typescript-eslint/*"
+          - "prettier*"
+      testing-library:
+        patterns:
+          - "@testing-library/*"
+      type-definitions:
+        patterns:
+          - "@types/*"
+    ignore:
+      - dependency-name: "plasmo"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "lucide-react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "clsx"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "tailwind-merge"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    rebase-strategy: "auto"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "github-actions"
+      - "dependencies"
+      - "待审核"
+    cooldown:
+      default-days: 7
+    groups:
+      actions-dependencies:
+        patterns:
+          - "*"
