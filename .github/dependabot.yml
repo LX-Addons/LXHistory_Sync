@@ -16,8 +16,6 @@ updates:
     labels:
       - "dependencies"
       - "待审核"
-    reviewers:
-      - "LX-Addons"
     cooldown:
       default-days: 7
       semver-major-days: 14
@@ -95,8 +93,6 @@ updates:
       - "github-actions"
       - "dependencies"
       - "待审核"
-    reviewers:
-      - "LX-Addons"
     cooldown:
       default-days: 7
     groups:

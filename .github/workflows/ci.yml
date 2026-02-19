@@ -346,7 +346,7 @@ jobs:
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306
         with:
           path: .plasmo
-          key: ${{ runner.os }}-${{ github.ref_name }}-plasmo-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-${{ github.ref_name }}-plasmo-${{ hashFiles('**/package-lock.json', '**/*.ts', '**/*.tsx', '**/*.css', 'assets/*') }}
           restore-keys: |
             ${{ runner.os }}-${{ github.ref_name }}-plasmo-
             ${{ runner.os }}-plasmo-
@@ -567,8 +567,14 @@ jobs:
             body += `### 🏷️ 状态徽章\n\n`;
             body += `${getBadge('代码检查', lintResult)} ${getBadge('单元测试', testResult)} ${getBadge('安全扫描', securityResult)} ${getBadge('构建', buildResult)} ${getBadge('E2E测试', e2eResult)}\n\n`;
             
+            const results = {
+              lint: lintResult,
+              test: testResult,
+              security: securityResult,
+              build: buildResult
+            };
             const allSuccess = ['lint', 'test', 'security', 'build'].every(r => 
-              eval(r + 'Result') === 'success'
+              results[r] === 'success'
             );
             const e2eSuccess = e2eResult === 'success' || e2eResult === 'skipped';
             
@@ -595,7 +601,7 @@ jobs:
               }
             }
             
-            github.rest.issues.createComment({
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,

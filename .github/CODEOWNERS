@@ -1,0 +1,6 @@
+* @LX-Addons
+
+/package.json @LX-Addons
+/package-lock.json @LX-Addons
+
+/.github/ @LX-Addons

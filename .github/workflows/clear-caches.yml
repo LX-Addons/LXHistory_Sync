@@ -24,9 +24,11 @@ jobs:
 
       - name: 清除缓存
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  # v8.0.0
+        env:
+          CACHE_PREFIX: ${{ inputs.cache_prefix }}
         with:
           script: |
-            const prefix = '${{ inputs.cache_prefix }}';
+            const prefix = process.env.CACHE_PREFIX || '';
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             
