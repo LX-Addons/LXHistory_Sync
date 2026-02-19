@@ -17,7 +17,7 @@ updates:
       - "dependencies"
       - "待审核"
     reviewers:
-      - "LX-Addons"
+      - "LJL-zy"
     cooldown:
       default-days: 7
       semver-major-days: 14
@@ -96,7 +96,7 @@ updates:
       - "dependencies"
       - "待审核"
     reviewers:
-      - "LX-Addons"
+      - "LJL-zy"
     cooldown:
       default-days: 7
     groups:

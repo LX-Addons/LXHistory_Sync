@@ -61,13 +61,16 @@ jobs:
           echo "## 📜 许可证合规检查" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          # 安装 license-checker-rseidelsohn 进行详细报告
           npm install -g license-checker-rseidelsohn
 
           echo "### 📊 许可证摘要" >> $GITHUB_STEP_SUMMARY
           license-checker-rseidelsohn --summary >> $GITHUB_STEP_SUMMARY
 
+          # 定义禁止的许可证（可能与隐私优先/专有目标冲突的 Copyleft 许可证）
           FORBIDDEN_LICENSES="GPL-2.0-only,GPL-2.0-or-later,GPL-3.0-only,GPL-3.0-or-later,AGPL-3.0-only,AGPL-3.0-or-later,LGPL-2.0-only,LGPL-2.0-or-later,LGPL-2.1-only,LGPL-2.1-or-later,LGPL-3.0-only,LGPL-3.0-or-later"
           
+          # 检查禁止的许可证
           VIOLATIONS=$(license-checker-rseidelsohn --failOn "$FORBIDDEN_LICENSES" 2>&1 || true)
           
           if echo "$VIOLATIONS" | grep -q "package(s) using a forbidden license"; then
