@@ -1,0 +1,36 @@
+[changelog]
+header = "## 更新日志\n\n"
+body = """
+{% if version %}\
+    ### {{ version | trim_start_matches(pat="v") }}
+{% else %}\
+    ### [Unreleased]
+{% endif %}\
+{% for commit in commits %}
+  - {{ commit.message | split(pat="\n") | first }}{% endfor %}
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+commit_parsers = [
+  { message = "^feat", group = "新功能" },
+  { message = "^fix", group = "修复" },
+  { message = "^doc", group = "文档" },
+  { message = "^perf", group = "性能优化" },
+  { message = "^refactor", group = "重构" },
+  { message = "^style", group = "样式" },
+  { message = "^test", group = "测试" },
+  { message = "^chore\\(release\\)", skip = true },
+  { message = "^chore", group = "杂项" },
+]
+protect_breaking_commits = false
+filter_commits = false
+tag_pattern = "v[0-9]*"
+skip_tags = ""
+ignore_tags = ""
+topo_order = false
+sort_commits = "oldest"

@@ -2,7 +2,7 @@ name: 构建与检查浏览器扩展
 
 on:
   push:
-    branches: [main]
+    branches: [main, beta, release]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -12,8 +12,8 @@ on:
         required: false
         default: false
         type: boolean
-      skip_tests:
-        description: "跳过测试（加快构建速度）"
+      skip_e2e:
+        description: "跳过 E2E 测试（加快构建速度）"
         required: false
         default: false
         type: boolean
@@ -31,7 +31,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || !contains(fromJSON('["main", "beta", "release"]'), github.ref_name) }}
 
 env:
   NODE_VERSION: "20"
@@ -59,7 +59,7 @@ jobs:
       - name: 设置产物保留天数
         id: retention
         run: |
-          if [[ "${{ github.ref_name }}" == "main" ]]; then
+          if [[ "${{ github.ref_name }}" == "main" || "${{ github.ref_name }}" == "beta" || "${{ github.ref_name }}" == "release" ]]; then
             echo "days=30" >> $GITHUB_OUTPUT
           elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "days=14" >> $GITHUB_OUTPUT
@@ -82,7 +82,6 @@ jobs:
             let cachesCleared = 0;
             
             console.log('🔍 正在清除当前分支相关缓存...');
-            console.log('分支前缀: ' + branchPrefix);
             
             for (const prefix of prefixes) {
               let page = 1;
@@ -163,7 +162,7 @@ jobs:
         run: npm ci --prefer-offline
 
       - name: TypeScript 类型检查
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: ESLint 代码检查
         run: npm run lint
@@ -314,7 +313,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [setup, lint, test]
-    if: always() && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    if: always() && (needs.lint.result == 'success') && (needs.test.result == 'success')
     outputs:
       version: ${{ steps.version.outputs.version }}
       name: ${{ steps.version.outputs.name }}
@@ -347,7 +346,7 @@ jobs:
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306
         with:
           path: .plasmo
-          key: ${{ runner.os }}-${{ github.ref_name }}-plasmo-${{ hashFiles('**/package-lock.json', 'src/**/*') }}
+          key: ${{ runner.os }}-${{ github.ref_name }}-plasmo-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-${{ github.ref_name }}-plasmo-
             ${{ runner.os }}-plasmo-
@@ -399,11 +398,6 @@ jobs:
               exit 1
             fi
           done
-          
-          if [ -f "$BUILD_DIR/manifest.json" ]; then
-            echo "📄 Manifest 内容:"
-            jq '.' "$BUILD_DIR/manifest.json"
-          fi
 
       - name: 打包扩展
         run: npm run package
@@ -438,11 +432,74 @@ jobs:
           echo "| **名称** | \`${{ steps.version.outputs.name }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **产物保留** | ${{ needs.setup.outputs.artifact_retention }} 天 |" >> $GITHUB_STEP_SUMMARY
 
+  e2e:
+    name: E2E测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [setup, build]
+    if: always() && needs.build.result == 'success' && github.event.inputs.skip_e2e != 'true'
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: 配置 Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 缓存 node_modules
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306
+        id: npm-cache
+        with:
+          path: |
+            node_modules
+            ~/.npm
+          key: ${{ needs.setup.outputs.cache_key }}
+          restore-keys: |
+            ${{ runner.os }}-${{ github.ref_name }}-node-
+            ${{ runner.os }}-node-
+
+      - name: 安装依赖
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline
+
+      - name: 下载构建产物
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          pattern: extension-*
+          path: build/
+          merge-multiple: true
+
+      - name: 准备测试扩展
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          NAME=$(jq -r '.name' package.json)
+          
+          if [ -d "build/${NAME}-${VERSION}-chrome" ]; then
+            mv "build/${NAME}-${VERSION}-chrome" "build/chrome-mv3-prod"
+          fi
+          
+          ls -la build/
+
+      - name: 安装 Playwright 浏览器
+        run: npx playwright install --with-deps chromium
+
+      - name: 运行 E2E 测试
+        run: xvfb-run --auto-servernum npm run test:e2e
+
+      - name: 上传 Playwright 报告
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: ${{ needs.setup.outputs.artifact_retention }}
+
   pr-comment:
     name: PR评论
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [setup, lint, test, security, build]
+    needs: [setup, lint, test, security, build, e2e]
     if: always() && github.event_name == 'pull_request'
     steps:
       - name: 检出仓库
@@ -472,6 +529,7 @@ jobs:
             const testResult = '${{ needs.test.result }}';
             const securityResult = '${{ needs.security.result }}';
             const buildResult = '${{ needs.build.result }}';
+            const e2eResult = '${{ needs.e2e.result }}';
             const version = '${{ steps.info.outputs.version }}';
             const isDependabot = '${{ steps.dependabot.outputs.is_dependabot }}' === 'true';
             
@@ -503,16 +561,18 @@ jobs:
             body += `| 🔍 | **代码检查** | ${statusEmoji(lintResult)} | TypeScript + ESLint + Prettier |\n`;
             body += `| 🧪 | **单元测试** | ${statusEmoji(testResult)} | Node.js 18/20 多版本测试 |\n`;
             body += `| 🛡️ | **安全扫描** | ${statusEmoji(securityResult)} | 密钥泄露 + 依赖审计 |\n`;
-            body += `| 📦 | **扩展构建** | ${statusEmoji(buildResult)} | Plasmo 生产构建 |\n\n`;
+            body += `| 📦 | **扩展构建** | ${statusEmoji(buildResult)} | Plasmo 生产构建 |\n`;
+            body += `| 🎭 | **E2E 测试** | ${statusEmoji(e2eResult)} | Playwright 浏览器测试 |\n\n`;
             
             body += `### 🏷️ 状态徽章\n\n`;
-            body += `${getBadge('代码检查', lintResult)} ${getBadge('单元测试', testResult)} ${getBadge('安全扫描', securityResult)} ${getBadge('构建', buildResult)}\n\n`;
+            body += `${getBadge('代码检查', lintResult)} ${getBadge('单元测试', testResult)} ${getBadge('安全扫描', securityResult)} ${getBadge('构建', buildResult)} ${getBadge('E2E测试', e2eResult)}\n\n`;
             
             const allSuccess = ['lint', 'test', 'security', 'build'].every(r => 
-              eval(r + 'Result') === 'success' || eval(r + 'Result') === 'skipped'
+              eval(r + 'Result') === 'success'
             );
+            const e2eSuccess = e2eResult === 'success' || e2eResult === 'skipped';
             
-            if (allSuccess) {
+            if (allSuccess && e2eSuccess) {
               body += `> 🎉 **所有检查已通过！** 代码已准备好合并。\n\n`;
             } else {
               body += `> ⚠️ **部分检查未通过**，请查看上方详情或检查日志。\n\n`;
@@ -527,7 +587,7 @@ jobs:
             if (isDependabot) {
               body += `---\n\n`;
               body += `### 🤖 Dependabot 依赖更新\n\n`;
-              if (allSuccess) {
+              if (allSuccess && e2eSuccess) {
                 body += `✅ 所有关键检查已通过，已添加 \`待审核\` 标签。\n\n`;
                 body += `⚠️ **需要人工审核后才能合并到主分支。**\n`;
               } else {
@@ -546,10 +606,11 @@ jobs:
     name: 创建发布
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [setup, build, security]
+    needs: [setup, build, e2e, security]
     if: |
       always() &&
       needs.build.result == 'success' &&
+      (needs.e2e.result == 'success' || needs.e2e.result == 'skipped') &&
       (needs.security.result == 'success' || needs.security.result == 'skipped') &&
       github.event_name == 'workflow_dispatch' &&
       github.event.inputs.create_release == 'true'
@@ -624,21 +685,19 @@ jobs:
           echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
           echo "| **版本** | \`v${{ steps.version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **类型** | ${{ github.ref == 'refs/heads/main' && '正式版' || '预发布版' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📦 发布资源:" >> $GITHUB_STEP_SUMMARY
-          ls -la build/*.zip >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "未找到 zip 文件" >> $GITHUB_STEP_SUMMARY
 
   dependabot-notify:
     name: Dependabot通知
     runs-on: ubuntu-latest
-    needs: [setup, lint, test, security, build]
+    needs: [setup, lint, test, security, build, e2e]
     if: |
       github.event_name == 'pull_request' &&
       github.actor == 'dependabot[bot]' &&
       needs.lint.result == 'success' &&
       needs.test.result == 'success' &&
       needs.security.result == 'success' &&
-      needs.build.result == 'success'
+      needs.build.result == 'success' &&
+      (needs.e2e.result == 'success' || needs.e2e.result == 'skipped')
     permissions:
       pull-requests: write
       issues: write
@@ -654,3 +713,25 @@ jobs:
               labels: ['待审核']
             })
             core.info('✅ 已添加待审核标签，等待人工审核后合并')
+
+  notify-failure:
+    name: 失败通知
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [setup, lint, test, security, build, e2e]
+    if: failure() && github.event_name != 'pull_request'
+    steps:
+      - name: 创建失败摘要
+        run: |
+          echo "## ❌ 构建失败" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 阶段 | 任务 | 状态 |" >> $GITHUB_STEP_SUMMARY
+          echo "| :---: | :--- | :---: |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🚀 | 环境准备 | ${{ needs.setup.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔍 | 代码检查 | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🧪 | 单元测试 | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🛡️ | 安全扫描 | ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📦 | 构建 | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🎭 | E2E 测试 | ${{ needs.e2e.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "请查看 [工作流日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) 了解详情。" >> $GITHUB_STEP_SUMMARY
