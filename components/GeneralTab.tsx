@@ -2,18 +2,12 @@ import { useState, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { Storage } from '@plasmohq/storage'
 import type { IconSourceType, CheckboxStyleType, ExportResult } from '~common/types'
+import { sendToBackground } from '~common/messaging'
 import { useGeneralConfig } from '~hooks/useGeneralConfig'
 import CheckboxField from '~components/CheckboxField'
 import StatusMessage from '~components/StatusMessage'
 
 const storage = new Storage()
-
-async function sendToBackground<Req, Res>(request: { name: string; body?: Req }): Promise<Res> {
-  const messaging = await import('@plasmohq/messaging')
-  return messaging.sendToBackground(
-    request as Parameters<typeof messaging.sendToBackground>[0]
-  ) as Promise<Res>
-}
 
 export default function GeneralTab() {
   const { generalConfig, setGeneralConfig, status, handleSave, getCheckboxClassName } =

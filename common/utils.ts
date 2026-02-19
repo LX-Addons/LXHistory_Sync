@@ -83,10 +83,6 @@ export function getFaviconUrl(domain: string, iconSource: IconSourceType): strin
   }
 }
 
-export function getDomainFaviconUrl(domain: string, iconSource: IconSourceType): string {
-  return getFaviconUrl(domain, iconSource)
-}
-
 export function applyTheme(theme: ThemeType): void {
   const root = document.documentElement
   const isDarkMode =

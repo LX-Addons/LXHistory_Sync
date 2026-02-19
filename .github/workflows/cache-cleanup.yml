@@ -1,0 +1,34 @@
+name: 🧹 缓存清理
+
+on:
+  pull_request:
+    types:
+      - closed
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    name: 清理缓存
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🗑️ 清理 PR 缓存
+        run: |
+          echo "📋 正在获取缓存列表..."
+          cacheKeysForPR=$(gh cache list --ref $BRANCH --limit 100 --json id --jq '.[].id')
+          
+          echo "🗑️ 正在删除缓存..."
+          for cacheKey in $cacheKeysForPR
+          do
+              gh cache delete $cacheKey
+              echo "✅ 已删除缓存: $cacheKey"
+          done
+          
+          echo "🎉 缓存清理完成！"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: refs/pull/${{ github.event.pull_request.number }}/merge

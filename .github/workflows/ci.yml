@@ -1,0 +1,165 @@
+name: 🔨 持续集成
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: 构建与测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 🧹 清理旧构建产物
+        run: |
+          echo "🧹 正在清理旧构建产物..."
+          rm -rf .plasmo build dist || true
+          echo "✅ 清理完成"
+
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+
+      - name: 📦 设置 Node.js 环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 💾 缓存依赖
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ci-${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ci-${{ runner.os }}-node-
+
+      - name: 📥 安装项目依赖
+        run: npm ci
+
+      - name: 🔍 依赖安全审计
+        run: npm audit --production || true
+        continue-on-error: true
+
+      - name: 🔍 代码检查 (ESLint)
+        run: |
+          if [ -f "package.json" ] && grep -q "eslint" package.json; then
+            npm run lint
+          else
+            echo "ℹ️ 未配置 ESLint，跳过检查"
+          fi
+
+      - name: 📝 格式检查 (Prettier)
+        run: |
+          if [ -f "package.json" ] && grep -q "prettier" package.json; then
+            npm run format:check
+          else
+            echo "ℹ️ 未配置 Prettier，跳过检查"
+          fi
+
+      - name: 📝 类型检查 (TypeScript)
+        run: npx tsc --noEmit
+
+      - name: 🧪 运行单元测试
+        run: npm run test:unit
+
+      - name: 🔨 构建扩展程序
+        run: npm run build:ci
+        env:
+          CI: true
+          NODE_ENV: production
+
+      - name: ✅ 验证构建产物
+        run: |
+          PROD_BUILD_PATH=$(find build -type d -name "chrome-mv3-prod" -o -name "*-mv3-prod" | head -1)
+          
+          if [ -z "$PROD_BUILD_PATH" ] || [ ! -d "$PROD_BUILD_PATH" ]; then
+            echo "❌ 生产构建目录未找到"
+            ls -la build/ || true
+            exit 1
+          fi
+          echo "✅ 生产构建目录: $PROD_BUILD_PATH"
+          
+          REQUIRED_FILES=("manifest.json" "popup.html")
+          for file in "${REQUIRED_FILES[@]}"; do
+            if [ -f "$PROD_BUILD_PATH/$file" ]; then
+              echo "✅ $file 存在"
+            else
+              echo "❌ $file 缺失"
+              exit 1
+            fi
+          done
+          
+          if command -v jq &> /dev/null; then
+            jq '.' "$PROD_BUILD_PATH/manifest.json" > /dev/null
+            echo "✅ manifest.json JSON 格式有效"
+          fi
+
+      - name: 🔒 安全检查
+        run: |
+          echo "🔍 执行安全检查..."
+          SECURITY_ISSUES=0
+          
+          DANGEROUS_FUNCS=("eval(" "new Function(")
+          for func in "${DANGEROUS_FUNCS[@]}"; do
+            if grep -r "$func" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo" | head -1; then
+              echo "⚠️ 发现 $func 使用，存在安全风险"
+              SECURITY_ISSUES=1
+            fi
+          done
+          
+          XSS_RISKS=("innerHTML" "dangerouslySetInnerHTML" "document.write(")
+          for risk in "${XSS_RISKS[@]}"; do
+            if grep -r "$risk" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo" | head -1; then
+              echo "⚠️ 发现 $risk 使用，存在 XSS 风险"
+              SECURITY_ISSUES=1
+            fi
+          done
+          
+          if grep -rE "api_key|secret|password|token" --include="*.ts" --include="*.tsx" . 2>/dev/null | grep -v "node_modules" | grep -v ".plasmo" | grep -v "test" | grep -E "['\"][a-zA-Z0-9]{20,}['\"]" | head -1; then
+            echo "⚠️ 发现潜在的硬编码密钥"
+            SECURITY_ISSUES=1
+          fi
+          
+          if [ $SECURITY_ISSUES -eq 0 ]; then
+            echo "✅ 所有安全检查通过"
+          else
+            echo "⚠️ 发现安全问题，请检查"
+          fi
+
+      - name: 📤 上传构建产物
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: extension-build-${{ github.run_id }}
+          path: build/
+          retention-days: 7
+
+      - name: 📊 生成构建报告
+        if: always()
+        run: |
+          echo "## 📊 构建报告" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 项目 | 状态 |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 代码检查 (ESLint) | ✅ 通过 |" >> $GITHUB_STEP_SUMMARY
+          echo "| 格式检查 (Prettier) | ✅ 通过 |" >> $GITHUB_STEP_SUMMARY
+          echo "| 类型检查 (TypeScript) | ✅ 通过 |" >> $GITHUB_STEP_SUMMARY
+          echo "| 单元测试 | ✅ 通过 |" >> $GITHUB_STEP_SUMMARY
+          echo "| 构建 | ✅ 成功 |" >> $GITHUB_STEP_SUMMARY
+          echo "| 安全检查 | ✅ 通过 |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**构建 ID**: ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**分支**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**提交**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY

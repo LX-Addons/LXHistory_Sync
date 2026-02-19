@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import type { IconSourceType } from '~common/types'
-import { getDomainFaviconUrl, getLetterIcon } from '~common/utils'
+import { getFaviconUrl, getLetterIcon } from '~common/utils'
 
 interface DomainIconProps {
   domain: string
   iconSource: IconSourceType
 }
 
-const DomainIcon: React.FC<DomainIconProps> = ({ domain, iconSource }) => {
+const DomainIcon: React.FC<DomainIconProps> = memo(({ domain, iconSource }) => {
   const [hasError, setHasError] = useState(false)
 
   useEffect(() => {
@@ -27,12 +27,10 @@ const DomainIcon: React.FC<DomainIconProps> = ({ domain, iconSource }) => {
   }
 
   return (
-    <img
-      src={getDomainFaviconUrl(domain, iconSource)}
-      alt={domain}
-      onError={() => setHasError(true)}
-    />
+    <img src={getFaviconUrl(domain, iconSource)} alt={domain} onError={() => setHasError(true)} />
   )
-}
+})
+
+DomainIcon.displayName = 'DomainIcon'
 
 export default DomainIcon

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStorage } from '@plasmohq/storage/hook'
 import { ensureHostPermission } from '~common/utils'
 import { Logger } from '~common/logger'
+import { sendToBackground } from '~common/messaging'
 import type { WebDAVConfig, HistoryItem } from '~common/types'
 
 export interface SyncStatusState {
@@ -13,13 +14,6 @@ interface SyncResponse {
   success: boolean
   data?: HistoryItem[]
   error?: string
-}
-
-async function sendToBackground<Req, Res>(request: { name: string; body?: Req }): Promise<Res> {
-  const messaging = await import('@plasmohq/messaging')
-  return messaging.sendToBackground(
-    request as Parameters<typeof messaging.sendToBackground>[0]
-  ) as Promise<Res>
 }
 
 export function useSync(onSyncComplete?: () => void) {

@@ -33,7 +33,7 @@ export function useHistory() {
     ...DEFAULT_GENERAL_CONFIG,
   } as GeneralConfig)
 
-  const formatDate = (timestamp: number) => {
+  const formatDate = useCallback((timestamp: number) => {
     const date = new Date(timestamp)
     const today = new Date()
     const yesterday = new Date(today)
@@ -51,7 +51,7 @@ export function useHistory() {
         weekday: 'long',
       })
     }
-  }
+  }, [])
 
   const groupItemsByDomain = useCallback((items: HistoryItem[]): GroupedHistoryItem[] => {
     const grouped: GroupedHistoryItem[] = []
@@ -123,7 +123,7 @@ export function useHistory() {
 
       return grouped
     },
-    [generalConfig.collapseDomainHistory, groupItemsByDomain]
+    [generalConfig.collapseDomainHistory, groupItemsByDomain, formatDate]
   )
 
   const loadHistory = useCallback(async () => {

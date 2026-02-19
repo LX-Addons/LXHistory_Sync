@@ -1,4 +1,5 @@
 version: 2
+
 updates:
   - package-ecosystem: 'npm'
     directory: '/'
@@ -8,11 +9,24 @@ updates:
       time: '09:00'
       timezone: 'Asia/Shanghai'
     open-pull-requests-limit: 5
+    reviewers:
+      - 'LX-Addons'
+    labels:
+      - 'dependencies'
     commit-message:
       prefix: 'chore'
       include: 'scope'
-    labels:
-      - 'dependencies'
+    groups:
+      production-dependencies:
+        dependency-type: 'production'
+        update-types:
+          - 'minor'
+          - 'patch'
+      development-dependencies:
+        dependency-type: 'development'
+        update-types:
+          - 'minor'
+          - 'patch'
     ignore:
       - dependency-name: 'plasmo'
         update-types: ['version-update:semver-major']
@@ -29,9 +43,15 @@ updates:
       time: '09:00'
       timezone: 'Asia/Shanghai'
     open-pull-requests-limit: 3
-    commit-message:
-      prefix: 'ci'
-      include: 'scope'
+    reviewers:
+      - 'LX-Addons'
     labels:
       - 'ci'
       - 'dependencies'
+    commit-message:
+      prefix: 'ci'
+      include: 'scope'
+    groups:
+      github-actions:
+        patterns:
+          - '*'

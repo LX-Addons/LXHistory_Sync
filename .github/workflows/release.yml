@@ -1,0 +1,237 @@
+name: 🚀 发布
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '发布版本号'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: 构建并发布
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROD_BUILD_PATH: build/chrome-mv3-prod
+    steps:
+      - name: 🧹 清理旧构建产物
+        run: |
+          echo "🧹 正在清理旧构建产物..."
+          rm -rf .plasmo build dist || true
+          echo "✅ 清理完成"
+
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📦 设置 Node.js 环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 💾 缓存依赖
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: release-${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            release-${{ runner.os }}-node-
+
+      - name: 📥 安装项目依赖
+        run: npm ci
+
+      - name: 🔍 依赖安全审计
+        run: npm audit --production || true
+        continue-on-error: true
+
+      - name: 📝 TypeScript 类型检查
+        run: npx tsc --noEmit
+
+      - name: 📊 获取版本信息
+        id: version_info
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          PROJECT_NAME=$(jq -r '.name' package.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
+          echo "zip_file=${PROJECT_NAME}-${VERSION}.zip" >> $GITHUB_OUTPUT
+
+      - name: 🔨 构建扩展程序
+        run: npm run build:ci
+        env:
+          CI: true
+          NODE_ENV: production
+
+      - name: ✅ 验证构建产物
+        run: |
+          if [ ! -d "$PROD_BUILD_PATH" ]; then
+            PROD_BUILD_PATH=$(find build -type d -name "chrome-mv3-prod" -o -name "*-mv3-prod" | head -1)
+          fi
+
+          if [ -z "$PROD_BUILD_PATH" ] || [ ! -d "$PROD_BUILD_PATH" ]; then
+            echo "❌ 生产构建目录未找到"
+            ls -la build/ || true
+            exit 1
+          fi
+
+          echo "✅ 生产构建目录: $PROD_BUILD_PATH"
+          echo "PROD_BUILD_PATH=$PROD_BUILD_PATH" >> $GITHUB_ENV
+
+          REQUIRED_FILES=("manifest.json" "popup.html")
+          for file in "${REQUIRED_FILES[@]}"; do
+            if [ -f "$PROD_BUILD_PATH/$file" ]; then
+              echo "✅ $file 存在"
+            else
+              echo "❌ $file 缺失"
+              exit 1
+            fi
+          done
+
+      - name: 📦 打包构建产物
+        run: |
+          VERSION="${{ steps.version_info.outputs.version }}"
+          PROJECT_NAME="${{ steps.version_info.outputs.project_name }}"
+          ZIP_NAME="${PROJECT_NAME}-${VERSION}.zip"
+
+          cd "$PROD_BUILD_PATH"
+          zip -r "$RUNNER_TEMP/$ZIP_NAME" .
+          echo "zip_path=$RUNNER_TEMP/$ZIP_NAME" >> $GITHUB_ENV
+          echo "✅ 打包完成: $RUNNER_TEMP/$ZIP_NAME"
+
+          ZIP_SIZE=$(wc -c < "$RUNNER_TEMP/$ZIP_NAME")
+          echo "📦 压缩包大小: $ZIP_SIZE 字节"
+
+      - name: 📝 生成发布说明
+        id: release_notes
+        run: |
+          VERSION="${{ steps.version_info.outputs.version }}"
+          NOTES_FILE="$RUNNER_TEMP/RELEASE_NOTES.md"
+
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LAST_TAG" ]; then
+            echo "## 🎉 首次发布 v$VERSION" > $NOTES_FILE
+          else
+            echo "## 🚀 Release v$VERSION" > $NOTES_FILE
+            echo "" >> $NOTES_FILE
+            echo "**完整变更日志**: [$LAST_TAG...v$VERSION](../../compare/$LAST_TAG...v$VERSION)" >> $NOTES_FILE
+          fi
+
+          echo "" >> $NOTES_FILE
+
+          if [ -n "$LAST_TAG" ]; then
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" 2>/dev/null | head -20)
+            if [ -n "$COMMITS" ]; then
+              echo "### 📋 变更内容" >> $NOTES_FILE
+              echo "" >> $NOTES_FILE
+              echo "$COMMITS" >> $NOTES_FILE
+              echo "" >> $NOTES_FILE
+            fi
+          fi
+
+          {
+            echo ""
+            echo "## 📦 安装说明"
+            echo ""
+            echo "### 手动安装"
+            echo "1. 下载 \`.zip\` 文件"
+            echo "2. 解压文件内容"
+            echo "3. 打开 Chrome，访问 \`chrome://extensions/\`"
+            echo "4. 启用右上角的 \"开发者模式\""
+            echo "5. 点击 \"加载已解压的扩展程序\"，选择解压后的文件夹"
+            echo ""
+            echo "## 📂 发布文件"
+            echo ""
+            echo "- \`LXHistory_Sync-v${VERSION}.zip\` - Chrome 扩展程序包"
+          } >> $NOTES_FILE
+
+          echo "notes_file=$NOTES_FILE" >> $GITHUB_OUTPUT
+          echo "✅ 发布说明已生成"
+          cat $NOTES_FILE
+
+      - name: 🚀 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ env.zip_path }}
+          body_path: ${{ steps.release_notes.outputs.notes_file }}
+          generate_release_notes: false
+          draft: false
+          prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
+
+      - name: 🚀 创建手动发布
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION="${{ steps.version_info.outputs.version }}"
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+
+          if [ -n "$INPUT_VERSION" ]; then
+            TAG_NAME="v$INPUT_VERSION"
+          else
+            TAG_NAME="v$VERSION"
+          fi
+
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "⚠️ 标签 $TAG_NAME 已存在，跳过创建"
+            exit 0
+          fi
+
+          gh release create "$TAG_NAME" \
+            --title "🚀 Release $TAG_NAME" \
+            --notes-file "${{ steps.release_notes.outputs.notes_file }}" \
+            "$zip_path"
+          echo "✅ 发布创建成功: $TAG_NAME"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🧹 清理临时文件
+        if: always()
+        run: |
+          rm -rf $RUNNER_TEMP/*.zip || true
+          rm -rf $RUNNER_TEMP/RELEASE_NOTES.md || true
+          echo "✅ 临时文件清理完成"
+
+      - name: 📊 生成发布报告
+        if: always()
+        run: |
+          VERSION="${{ steps.version_info.outputs.version }}"
+          PROJECT_NAME="${{ steps.version_info.outputs.project_name }}"
+
+          echo "## 🚀 发布报告" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 发布信息" >> $GITHUB_STEP_SUMMARY
+          echo "- **项目名称**: $PROJECT_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "- **版本号**: v$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "- **触发方式**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **提交哈希**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **分支**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "### ✅ 发布状态" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| 检查项 | 状态 |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|------|" >> $GITHUB_STEP_SUMMARY
+            echo "| 依赖安装 | ✅ 成功 |" >> $GITHUB_STEP_SUMMARY
+            echo "| 类型检查 | ✅ 通过 |" >> $GITHUB_STEP_SUMMARY
+            echo "| 构建产物 | ✅ 验证通过 |" >> $GITHUB_STEP_SUMMARY
+            echo "| 打包压缩 | ✅ 完成 |" >> $GITHUB_STEP_SUMMARY
+            echo "| GitHub Release | ✅ 已创建 |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ 发布失败" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "请检查上方日志了解详细错误信息。" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "_发布时间: $(date -u '+%Y-%m-%d %H:%M:%S UTC')_" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,43 @@
+name: 📦 依赖审核
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    name: 依赖变更审核
+    runs-on: ubuntu-latest
+    if: ${{ github.actor == 'dependabot[bot]' }}
+    steps:
+      - name: 📥 检出代码
+        uses: actions/checkout@v4
+      
+      - name: 🔍 检查依赖变更
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+      
+      - name: 🏷️ 添加审核标签
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} --add-label "需要审核"
+          echo "✅ 已添加审核标签"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: 📊 生成依赖变更摘要
+        run: |
+          echo "## 📦 依赖变更摘要" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "此 PR 由 Dependabot 自动创建，包含依赖更新。" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **请仔细审核以下内容：**" >> $GITHUB_STEP_SUMMARY
+          echo "- 检查依赖版本变更是否合理" >> $GITHUB_STEP_SUMMARY
+          echo "- 确认无安全漏洞引入" >> $GITHUB_STEP_SUMMARY
+          echo "- 验证构建和测试通过" >> $GITHUB_STEP_SUMMARY
