@@ -80,6 +80,8 @@ import {
   validateAllConfig,
   loadConfigForSync,
   throwConfigError,
+  loadAndDecryptConfig,
+  getValidatedConfig,
 } from '~/common/config-manager'
 
 describe('validateUrl', () => {
@@ -667,6 +669,107 @@ describe('Storage and Master Password Functions', () => {
       ])
       const result = await loadConfigForSync(testKey)
       expect(result).toBeNull()
+    })
+
+    it('should return config when master key and config exist', async () => {
+      const testKey = await webcrypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
+        'encrypt',
+        'decrypt',
+      ])
+      mockStores.store['webdav_config'] = {
+        url: 'https://example.com',
+        username: 'user',
+        password: 'encrypted-password123',
+      }
+      const result = await loadConfigForSync(testKey)
+      expect(result).not.toBeNull()
+      expect(result?.url).toBe('https://example.com')
+      expect(result?.password).toBe('password123')
+    })
+
+    it('should decrypt encryption key when present', async () => {
+      const testKey = await webcrypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
+        'encrypt',
+        'decrypt',
+      ])
+      mockStores.store['webdav_config'] = {
+        url: 'https://example.com',
+        username: 'user',
+        password: 'encrypted-password123',
+        encryption: {
+          enabled: true,
+          key: 'encrypted-StrongKey123!',
+          type: 'aes-256-gcm',
+        },
+      }
+      const result = await loadConfigForSync(testKey)
+      expect(result).not.toBeNull()
+      expect(result?.encryption?.key).toBe('StrongKey123!')
+    })
+  })
+
+  describe('loadAndDecryptConfig', () => {
+    it('should return session config if exists', async () => {
+      mockStores.sessionStore['webdav_config'] = {
+        url: 'https://session.example.com',
+        username: 'session-user',
+      }
+      const testKey = await webcrypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
+        'encrypt',
+        'decrypt',
+      ])
+      const result = await loadAndDecryptConfig(testKey)
+      expect(result).not.toBeNull()
+      expect(result?.url).toBe('https://session.example.com')
+    })
+
+    it('should return null when no stored config', async () => {
+      const testKey = await webcrypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
+        'encrypt',
+        'decrypt',
+      ])
+      const result = await loadAndDecryptConfig(testKey)
+      expect(result).toBeNull()
+    })
+
+    it('should decrypt password and store in session', async () => {
+      const testKey = await webcrypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
+        'encrypt',
+        'decrypt',
+      ])
+      mockStores.store['webdav_config'] = {
+        url: 'https://example.com',
+        username: 'user',
+        password: 'encrypted-secret',
+      }
+      const result = await loadAndDecryptConfig(testKey)
+      expect(result?.password).toBe('secret')
+      expect(mockStores.sessionStore['webdav_config']).toBeDefined()
+    })
+  })
+
+  describe('getValidatedConfig', () => {
+    it('should throw error when no config', async () => {
+      await expect(getValidatedConfig()).rejects.toThrow()
+    })
+
+    it('should return stored config when valid', async () => {
+      mockStores.store['webdav_config'] = {
+        url: 'https://example.com',
+        username: 'user',
+        password: 'password123',
+      }
+      const result = await getValidatedConfig()
+      expect(result.url).toBe('https://example.com')
+    })
+
+    it('should throw error for invalid config', async () => {
+      mockStores.store['webdav_config'] = {
+        url: 'invalid-url',
+        username: 'user',
+        password: 'password123',
+      }
+      await expect(getValidatedConfig()).rejects.toThrow()
     })
   })
 

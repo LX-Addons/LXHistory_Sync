@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { Logger, LogLevel, setLogLevel } from '~/common/logger'
+import {
+  Logger,
+  LogLevel,
+  setLogLevel,
+  setModuleLogLevel,
+  getModuleLogLevel,
+} from '~/common/logger'
 
 describe('logger', () => {
   describe('LogLevel', () => {
@@ -68,6 +74,49 @@ describe('logger', () => {
       Logger.info('test message')
       const call = consoleInfoSpy.mock.calls[0]
       expect(call[0]).toContain('[INFO]')
+    })
+  })
+
+  describe('module log levels', () => {
+    let consoleDebugSpy: ReturnType<typeof vi.spyOn>
+    let consoleInfoSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      consoleDebugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+      consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+      setLogLevel(LogLevel.INFO)
+    })
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('should set and get module log level', () => {
+      setModuleLogLevel('test-module', LogLevel.DEBUG)
+      expect(getModuleLogLevel('test-module')).toBe(LogLevel.DEBUG)
+    })
+
+    it('should return undefined for unset module', () => {
+      expect(getModuleLogLevel('unset-module')).toBeUndefined()
+    })
+
+    it('should use module log level for debug', () => {
+      setModuleLogLevel('debug-module', LogLevel.DEBUG)
+      Logger.debug('test message', undefined, 'debug-module')
+      expect(consoleDebugSpy).toHaveBeenCalled()
+    })
+
+    it('should use module log level for info', () => {
+      setModuleLogLevel('info-module', LogLevel.INFO)
+      Logger.info('test message', undefined, 'info-module')
+      expect(consoleInfoSpy).toHaveBeenCalled()
+    })
+
+    it('should include module name in log prefix', () => {
+      setModuleLogLevel('my-module', LogLevel.INFO)
+      Logger.info('test message', undefined, 'my-module')
+      const call = consoleInfoSpy.mock.calls[0]
+      expect(call[0]).toContain('[my-module]')
     })
   })
 })

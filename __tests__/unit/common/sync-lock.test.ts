@@ -3,19 +3,21 @@ import { SyncLock } from '~/common/sync-lock'
 
 const mockSessionStorage: Record<string, unknown> = {}
 
+const mockSessionMethods = {
+  get: vi.fn(async (key: string) => {
+    return { [key]: mockSessionStorage[key] }
+  }),
+  set: vi.fn(async (data: Record<string, unknown>) => {
+    Object.assign(mockSessionStorage, data)
+  }),
+  remove: vi.fn(async (key: string) => {
+    delete mockSessionStorage[key]
+  }),
+}
+
 vi.stubGlobal('chrome', {
   storage: {
-    session: {
-      get: vi.fn(async (key: string) => {
-        return { [key]: mockSessionStorage[key] }
-      }),
-      set: vi.fn(async (data: Record<string, unknown>) => {
-        Object.assign(mockSessionStorage, data)
-      }),
-      remove: vi.fn(async (key: string) => {
-        delete mockSessionStorage[key]
-      }),
-    },
+    session: mockSessionMethods,
   },
 })
 
@@ -156,6 +158,39 @@ describe('SyncLock', () => {
         const isLocked = await SyncLock.isLocked()
         expect(isLocked).toBe(false)
       }
+    })
+  })
+
+  describe('error handling', () => {
+    it('should return false when isLocked encounters error', async () => {
+      const originalGet = mockSessionMethods.get
+      mockSessionMethods.get.mockRejectedValueOnce(new Error('Storage error'))
+
+      const isLocked = await SyncLock.isLocked()
+      expect(isLocked).toBe(false)
+
+      mockSessionMethods.get = originalGet
+    })
+
+    it('should handle getLockInfo error gracefully', async () => {
+      const originalGet = mockSessionMethods.get
+      mockSessionMethods.get.mockRejectedValueOnce(new Error('Storage error'))
+
+      const info = await SyncLock.getLockInfo()
+      expect(info).toBeNull()
+
+      mockSessionMethods.get = originalGet
+    })
+
+    it('should handle updateLockTimestamp error gracefully', async () => {
+      await SyncLock.acquire()
+
+      const originalSet = mockSessionMethods.set
+      mockSessionMethods.set.mockRejectedValueOnce(new Error('Storage error'))
+
+      await SyncLock.acquire()
+
+      mockSessionMethods.set = originalSet
     })
   })
 })
