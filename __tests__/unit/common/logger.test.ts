@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { Logger, LogLevel, log, setLogLevel } from '~/common/logger'
+import { Logger, LogLevel, setLogLevel } from '~/common/logger'
 
 describe('logger', () => {
   describe('LogLevel', () => {
@@ -68,53 +68,6 @@ describe('logger', () => {
       Logger.info('test message')
       const call = consoleInfoSpy.mock.calls[0]
       expect(call[0]).toContain('[INFO]')
-    })
-  })
-
-  describe('log function', () => {
-    let consoleDebugSpy: ReturnType<typeof vi.spyOn>
-    let consoleInfoSpy: ReturnType<typeof vi.spyOn>
-    let consoleWarnSpy: ReturnType<typeof vi.spyOn>
-    let consoleErrorSpy: ReturnType<typeof vi.spyOn>
-
-    beforeEach(() => {
-      consoleDebugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
-      consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
-      consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      setLogLevel(LogLevel.INFO)
-    })
-
-    afterEach(() => {
-      vi.restoreAllMocks()
-    })
-
-    it('log DEBUG 应该在 DEBUG 级别下调用 Logger.debug', () => {
-      setLogLevel(LogLevel.DEBUG)
-      log(LogLevel.DEBUG, 'test message')
-      expect(consoleDebugSpy).toHaveBeenCalled()
-    })
-
-    it('log INFO 应该调用 Logger.info', () => {
-      log(LogLevel.INFO, 'test message')
-      expect(consoleInfoSpy).toHaveBeenCalled()
-    })
-
-    it('log WARN 应该调用 Logger.warn', () => {
-      log(LogLevel.WARN, 'test message')
-      expect(consoleWarnSpy).toHaveBeenCalled()
-    })
-
-    it('log ERROR 应该调用 Logger.error', () => {
-      log(LogLevel.ERROR, 'test message')
-      expect(consoleErrorSpy).toHaveBeenCalled()
-    })
-
-    it('log NONE 不应该调用任何 console 方法', () => {
-      log(LogLevel.NONE, 'test message')
-      expect(consoleInfoSpy).not.toHaveBeenCalled()
-      expect(consoleWarnSpy).not.toHaveBeenCalled()
-      expect(consoleErrorSpy).not.toHaveBeenCalled()
     })
   })
 })

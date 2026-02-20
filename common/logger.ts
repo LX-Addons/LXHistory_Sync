@@ -65,20 +65,3 @@ export class Logger {
     }
   }
 }
-
-export function log(level: LogLevel, message: string, data?: unknown): void {
-  switch (level) {
-    case LogLevel.DEBUG:
-      Logger.debug(message, data)
-      break
-    case LogLevel.INFO:
-      Logger.info(message, data)
-      break
-    case LogLevel.WARN:
-      Logger.warn(message, data)
-      break
-    case LogLevel.ERROR:
-      Logger.error(message, data)
-      break
-  }
-}

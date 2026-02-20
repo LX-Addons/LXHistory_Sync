@@ -45,7 +45,7 @@ const VirtualHistoryList: React.FC<VirtualHistoryListProps> = ({
       style={{ height: '100%', width: '100%' }}
       data={items}
       itemContent={itemContent}
-      overscan={200}
+      overscan={15}
     />
   )
 }

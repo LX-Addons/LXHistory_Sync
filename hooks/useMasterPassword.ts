@@ -1,11 +1,41 @@
 import { useState, useEffect } from 'react'
 import { Logger } from '~common/logger'
 import {
-  getMasterKey,
+  hasMasterPasswordSet,
   setMasterPassword as saveMasterPassword,
   setSessionMasterPassword,
   clearMasterPassword,
 } from '~common/webdav'
+
+export interface PasswordValidationResult {
+  isValid: boolean
+  errors: string[]
+}
+
+export function validateMasterPassword(password: string): PasswordValidationResult {
+  const errors: string[] = []
+
+  if (password.length < 12) {
+    errors.push('主密码长度至少为12个字符')
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    errors.push('主密码必须包含至少一个大写字母')
+  }
+
+  if (!/[a-z]/.test(password)) {
+    errors.push('主密码必须包含至少一个小写字母')
+  }
+
+  if (!/[0-9]/.test(password)) {
+    errors.push('主密码必须包含至少一个数字')
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  }
+}
 
 export function useMasterPassword() {
   const [status, setStatus] = useState('')
@@ -20,8 +50,8 @@ export function useMasterPassword() {
   }, [])
 
   const checkMasterPasswordStatus = async () => {
-    const masterKey = await getMasterKey()
-    setHasMasterPassword(masterKey !== null)
+    const isSet = await hasMasterPasswordSet()
+    setHasMasterPassword(isSet)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,8 +62,9 @@ export function useMasterPassword() {
       return
     }
 
-    if (masterPassword.length < 8) {
-      setMasterPasswordError('主密码长度至少为8个字符')
+    const validation = validateMasterPassword(masterPassword)
+    if (!validation.isValid) {
+      setMasterPasswordError(validation.errors[0])
       return
     }
 

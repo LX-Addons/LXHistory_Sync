@@ -6,6 +6,7 @@ import { testWebDAVConnection } from '~common/webdav'
 import StatusMessage from '~components/StatusMessage'
 import { ensureHostPermission } from '~common/utils'
 import { useStorage } from '@plasmohq/storage/hook'
+import type { MasterPasswordData } from '~common/config-manager'
 
 export default function WebDAVTab() {
   const { config, setConfig, status, handleSave } = useConfig()
@@ -15,12 +16,9 @@ export default function WebDAVTab() {
     type: 'info' | 'success' | 'error'
   } | null>(null)
   const [showMasterPasswordPrompt, setShowMasterPasswordPrompt] = useState(false)
-  const [masterPasswordData] = useStorage<{ hash: string; salt: string } | null>(
-    'master_password_data',
-    null
-  )
+  const [masterPasswordData] = useStorage<MasterPasswordData | null>('master_password_data', null)
 
-  const hasMasterPassword = !!masterPasswordData?.hash
+  const hasMasterPassword = !!(masterPasswordData?.salt && masterPasswordData?.verificationData)
 
   const handleSaveWithPrompt = async (e: React.FormEvent) => {
     await handleSave(e)

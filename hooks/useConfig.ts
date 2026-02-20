@@ -1,59 +1,62 @@
 import { useState, useEffect } from 'react'
-import { Storage } from '@plasmohq/storage'
+import { useStorage } from '@plasmohq/storage/hook'
 import type { WebDAVConfig } from '~common/types'
 import { getMasterKey, encryptData, decryptData } from '~common/webdav'
 import { STATUS_CLEAR_DELAY, ensureHostPermission } from '~common/utils'
 import { Logger } from '~common/logger'
 
-const storage = new Storage()
+const DEFAULT_CONFIG: WebDAVConfig = {
+  url: '',
+  username: '',
+  password: '',
+  encryption: {
+    enabled: false,
+    type: 'aes-256-gcm',
+  },
+}
 
 export function useConfig() {
-  const [config, setConfig] = useState<WebDAVConfig>({
-    url: '',
-    username: '',
-    password: '',
-    encryption: {
-      enabled: false,
-      type: 'aes-256-gcm',
-    },
-  })
+  const [storedConfig, setStoredConfig] = useStorage<WebDAVConfig>('webdav_config', DEFAULT_CONFIG)
+  const [config, setConfig] = useState<WebDAVConfig>(DEFAULT_CONFIG)
   const [status, setStatus] = useState('')
 
   useEffect(() => {
-    loadConfig()
-  }, [])
+    if (!storedConfig) {
+      setConfig(DEFAULT_CONFIG)
+      return
+    }
 
-  const loadConfig = async () => {
-    const savedConfig = await storage.get<WebDAVConfig>('webdav_config')
-    if (savedConfig) {
+    const decryptConfig = async () => {
       const masterKey = await getMasterKey()
 
       if (masterKey) {
         try {
-          const decryptedPassword = savedConfig.password
-            ? await decryptData(savedConfig.password, masterKey)
+          const decryptedPassword = storedConfig.password
+            ? await decryptData(storedConfig.password, masterKey)
             : undefined
-          const decryptedKey = savedConfig.encryption?.key
-            ? await decryptData(savedConfig.encryption.key, masterKey)
+          const decryptedKey = storedConfig.encryption?.key
+            ? await decryptData(storedConfig.encryption.key, masterKey)
             : undefined
 
           setConfig({
-            ...savedConfig,
+            ...storedConfig,
             password: decryptedPassword,
             encryption: {
-              ...savedConfig.encryption,
+              ...storedConfig.encryption,
               key: decryptedKey,
             },
           })
         } catch (error) {
           Logger.error('Failed to decrypt config', error)
-          setConfig(savedConfig)
+          setConfig(storedConfig)
         }
       } else {
-        setConfig(savedConfig)
+        setConfig(storedConfig)
       }
     }
-  }
+
+    decryptConfig()
+  }, [storedConfig])
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,9 +86,9 @@ export function useConfig() {
               : undefined,
           },
         }
-        await storage.set('webdav_config', configToSave)
+        await setStoredConfig(configToSave)
       } else {
-        await storage.set('webdav_config', config)
+        await setStoredConfig(config)
       }
 
       setStatus('保存成功！')

@@ -29,11 +29,6 @@ export interface WebDAVConfig {
 
 export type SyncStatus = 'info' | 'success' | 'error'
 
-export interface SyncMessage {
-  message: string
-  type: SyncStatus
-}
-
 export interface CloudSyncResult {
   success: boolean
   items?: HistoryItem[]
@@ -69,23 +64,6 @@ export interface MergeResult {
   remoteOnly: number
   updated: number
   items: HistoryItem[]
-}
-
-export interface HistoryItemProps {
-  item: HistoryItem
-  onClick?: (item: HistoryItem) => void
-}
-
-export interface SyncStatusProps {
-  status: SyncMessage | null
-}
-
-export interface ConfigFormProps {
-  config: WebDAVConfig
-  status: string
-  onConfigChange: (config: WebDAVConfig) => void
-  onSubmit: (e: React.FormEvent) => void
-  checkboxStyle?: CheckboxStyleType
 }
 
 export type SyncDirection = 'to_cloud' | 'from_cloud'

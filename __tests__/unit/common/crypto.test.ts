@@ -6,6 +6,7 @@ import {
   encryptData,
   decryptData,
   hashPassword,
+  verifyPasswordWithSalt,
   calculateKeyStrength,
   getAlgorithmParams,
   getIVLength,
@@ -67,18 +68,51 @@ describe('crypto', () => {
   })
 
   describe('hashPassword', () => {
-    it('should hash password consistently', async () => {
+    it('should hash password with salt and return salt + verificationData', async () => {
       const password = 'test-password'
-      const hash1 = await hashPassword(password)
-      const hash2 = await hashPassword(password)
-      expect(hash1).toBe(hash2)
-      expect(hash1.length).toBeGreaterThan(0)
+      const result = await hashPassword(password)
+      expect(result.salt).toBeDefined()
+      expect(result.verificationData).toBeDefined()
+      expect(result.salt.length).toBeGreaterThan(0)
+      expect(result.verificationData.length).toBe(64)
     })
 
-    it('should produce different hashes for different passwords', async () => {
-      const hash1 = await hashPassword('password-1')
-      const hash2 = await hashPassword('password-2')
-      expect(hash1).not.toBe(hash2)
+    it('should produce different salts for same password', async () => {
+      const password = 'test-password'
+      const result1 = await hashPassword(password)
+      const result2 = await hashPassword(password)
+      expect(result1.salt).not.toBe(result2.salt)
+      expect(result1.verificationData).not.toBe(result2.verificationData)
+    })
+
+    it('should produce different verificationData for different passwords', async () => {
+      const result1 = await hashPassword('password-1')
+      const result2 = await hashPassword('password-2')
+      expect(result1.verificationData).not.toBe(result2.verificationData)
+    })
+  })
+
+  describe('verifyPasswordWithSalt', () => {
+    it('should verify correct password', async () => {
+      const password = 'test-password'
+      const { salt, verificationData } = await hashPassword(password)
+      const isValid = await verifyPasswordWithSalt(password, salt, verificationData)
+      expect(isValid).toBe(true)
+    })
+
+    it('should reject wrong password', async () => {
+      const password = 'test-password'
+      const { salt, verificationData } = await hashPassword(password)
+      const isValid = await verifyPasswordWithSalt('wrong-password', salt, verificationData)
+      expect(isValid).toBe(false)
+    })
+
+    it('should reject with wrong salt', async () => {
+      const password = 'test-password'
+      const { verificationData } = await hashPassword(password)
+      const wrongSalt = generateSalt()
+      const isValid = await verifyPasswordWithSalt(password, wrongSalt, verificationData)
+      expect(isValid).toBe(false)
     })
   })
 
