@@ -68,7 +68,8 @@
   },
   "overrides": {
     "msgpackr": ">=1.10.1",
-    "esbuild": "0.25.0"
+    "esbuild": "0.25.0",
+    "content-security-policy-parser": ">=0.6.0"
   },
   "targets": {
     "default": {
