@@ -250,14 +250,26 @@ jobs:
       pull-requests: write
       security-events: write
     needs: [setup, test]
-    if: needs.test.result == 'success' && secrets.SONAR_TOKEN != ''
+    if: needs.test.result == 'success'
     steps:
+      - name: 检查 SonarCloud 配置
+        id: check_sonar
+        run: |
+          if [ -n "${{ secrets.SONAR_TOKEN }}" ]; then
+            echo "configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "::warning::SONAR_TOKEN 未配置，跳过 SonarCloud 扫描"
+          fi
+
       - name: 检出仓库
+        if: steps.check_sonar.outputs.configured == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           fetch-depth: 0
 
       - name: 下载测试覆盖率产物
+        if: steps.check_sonar.outputs.configured == 'true'
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with:
           pattern: test-coverage-*
@@ -265,13 +277,14 @@ jobs:
           merge-multiple: true
 
       - name: SonarCloud 扫描
+        if: steps.check_sonar.outputs.configured == 'true'
         uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: 上传 SonarCloud 产物
-        if: always()
+        if: always() && steps.check_sonar.outputs.configured == 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: sonarcloud-report
