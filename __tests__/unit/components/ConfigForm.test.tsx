@@ -129,4 +129,122 @@ describe('ConfigForm', () => {
 
     expect(onSubmit).toHaveBeenCalled()
   })
+
+  it('should toggle encryption checkbox', () => {
+    const onConfigChange = vi.fn()
+    render(<ConfigForm {...defaultProps} onConfigChange={onConfigChange} />)
+
+    const checkbox = screen.getByLabelText('启用加密:')
+    fireEvent.click(checkbox)
+
+    expect(onConfigChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        encryption: expect.objectContaining({ enabled: true }),
+      })
+    )
+  })
+
+  it('should change encryption type', () => {
+    const onConfigChange = vi.fn()
+    const configWithEncryption: WebDAVConfig = {
+      ...defaultConfig,
+      encryption: {
+        enabled: true,
+        type: 'aes-256-gcm',
+      },
+    }
+
+    render(
+      <ConfigForm {...defaultProps} config={configWithEncryption} onConfigChange={onConfigChange} />
+    )
+
+    const select = screen.getByLabelText('加密类型:')
+    fireEvent.change(select, { target: { value: 'chacha20-poly1305' } })
+
+    expect(onConfigChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        encryption: expect.objectContaining({ type: 'chacha20-poly1305' }),
+      })
+    )
+  })
+
+  it('should input encryption key', () => {
+    const onConfigChange = vi.fn()
+    const configWithEncryption: WebDAVConfig = {
+      ...defaultConfig,
+      encryption: {
+        enabled: true,
+        type: 'aes-256-gcm',
+      },
+    }
+
+    render(
+      <ConfigForm {...defaultProps} config={configWithEncryption} onConfigChange={onConfigChange} />
+    )
+
+    const keyInput = screen.getByLabelText('加密密钥:')
+    fireEvent.change(keyInput, { target: { value: 'MySecretKey123!' } })
+
+    expect(onConfigChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        encryption: expect.objectContaining({ key: 'MySecretKey123!' }),
+      })
+    )
+  })
+
+  it('should show password validation error', () => {
+    const onConfigChange = vi.fn()
+    render(<ConfigForm {...defaultProps} onConfigChange={onConfigChange} />)
+
+    const passwordInput = screen.getByLabelText('密码/应用令牌:')
+    fireEvent.change(passwordInput, { target: { value: 'short' } })
+    fireEvent.blur(passwordInput)
+
+    expect(screen.getByText('密码长度至少为 8 个字符')).toBeInTheDocument()
+  })
+
+  it('should show encryption key strength', () => {
+    const configWithEncryption: WebDAVConfig = {
+      ...defaultConfig,
+      encryption: {
+        enabled: true,
+        type: 'aes-256-gcm',
+        key: 'StrongEncryptionKey123!',
+      },
+    }
+
+    render(<ConfigForm {...defaultProps} config={configWithEncryption} />)
+
+    expect(screen.getByText(/强/)).toBeInTheDocument()
+  })
+
+  it('should show medium key strength', () => {
+    const configWithEncryption: WebDAVConfig = {
+      ...defaultConfig,
+      encryption: {
+        enabled: true,
+        type: 'aes-256-gcm',
+        key: 'MediumKey12',
+      },
+    }
+
+    render(<ConfigForm {...defaultProps} config={configWithEncryption} />)
+
+    expect(screen.getByText(/中/)).toBeInTheDocument()
+  })
+
+  it('should show weak key strength', () => {
+    const configWithEncryption: WebDAVConfig = {
+      ...defaultConfig,
+      encryption: {
+        enabled: true,
+        type: 'aes-256-gcm',
+        key: 'weak',
+      },
+    }
+
+    render(<ConfigForm {...defaultProps} config={configWithEncryption} />)
+
+    expect(screen.getByText(/弱/)).toBeInTheDocument()
+  })
 })

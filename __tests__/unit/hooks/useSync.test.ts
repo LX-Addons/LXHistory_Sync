@@ -248,4 +248,43 @@ describe('useSync', () => {
 
     expect(onSyncComplete).toHaveBeenCalled()
   })
+
+  it('should require unlock when syncing from cloud', async () => {
+    mockStorage['webdav_config'] = {
+      url: 'https://example.com',
+      username: 'user',
+      password: 'password',
+    }
+    mockHasMasterPasswordSet.mockResolvedValueOnce(true)
+    mockIsMasterPasswordUnlocked.mockResolvedValueOnce(false)
+
+    const { result } = renderHook(() => useSync())
+
+    await act(async () => {
+      await result.current.syncFromCloud()
+    })
+
+    expect(result.current.unlockRequired.required).toBe(true)
+    expect(result.current.unlockRequired.action).toBe('syncFromCloud')
+  })
+
+  it('should retry syncFromCloud after unlock', async () => {
+    mockStorage['webdav_config'] = {
+      url: 'https://example.com',
+      username: 'user',
+      password: 'password',
+    }
+
+    const { result } = renderHook(() => useSync())
+
+    act(() => {
+      result.current.clearUnlockRequired()
+    })
+
+    await act(async () => {
+      await result.current.retryAfterUnlock()
+    })
+
+    expect(mockSendToBackground).not.toHaveBeenCalled()
+  })
 })

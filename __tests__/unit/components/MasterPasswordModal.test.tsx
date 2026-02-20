@@ -102,4 +102,51 @@ describe('MasterPasswordModal', () => {
       expect(screen.getByText('验证中...')).toBeInTheDocument()
     })
   })
+
+  it('should show error when verification throws exception', async () => {
+    const onVerify = vi.fn(async () => {
+      throw new Error('Network error')
+    })
+    render(<MasterPasswordModal {...defaultProps} onVerify={onVerify} />)
+
+    const input = screen.getByPlaceholderText('请输入主密码')
+    fireEvent.change(input, { target: { value: 'testpassword' } })
+
+    const submitButton = screen.getByRole('button', { name: '解锁' })
+    fireEvent.click(submitButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Network error')).toBeInTheDocument()
+    })
+  })
+
+  it('should close on Escape key', async () => {
+    const onClose = vi.fn()
+    render(<MasterPasswordModal {...defaultProps} onClose={onClose} />)
+
+    const overlay = document.querySelector('.modal-overlay')
+    if (overlay) {
+      fireEvent.keyDown(overlay, { key: 'Escape' })
+    }
+
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('should show custom description', () => {
+    render(<MasterPasswordModal {...defaultProps} description="自定义描述文本" />)
+
+    expect(screen.getByText('自定义描述文本')).toBeInTheDocument()
+  })
+
+  it('should close when clicking overlay', async () => {
+    const onClose = vi.fn()
+    render(<MasterPasswordModal {...defaultProps} onClose={onClose} />)
+
+    const overlay = document.querySelector('.modal-overlay')
+    if (overlay) {
+      fireEvent.click(overlay)
+    }
+
+    expect(onClose).toHaveBeenCalled()
+  })
 })

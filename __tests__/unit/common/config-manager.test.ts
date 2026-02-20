@@ -771,6 +771,27 @@ describe('Storage and Master Password Functions', () => {
       }
       await expect(getValidatedConfig()).rejects.toThrow()
     })
+
+    it('should return encrypted config when master key exists', async () => {
+      mockStores.store['webdav_config'] = {
+        url: 'https://example.com',
+        username: 'user',
+        password: 'encrypted-password123',
+      }
+      mockStores.sessionStore['master_key_raw'] = 'test-key'
+      const result = await getValidatedConfig()
+      expect(result.url).toBe('https://example.com')
+    })
+
+    it('should throw error when master key exists but config invalid', async () => {
+      mockStores.sessionStore['master_key_raw'] = 'test-key'
+      mockStores.store['webdav_config'] = {
+        url: 'invalid-url',
+        username: 'user',
+        password: 'encrypted-password',
+      }
+      await expect(getValidatedConfig()).rejects.toThrow()
+    })
   })
 
   describe('throwConfigError', () => {
