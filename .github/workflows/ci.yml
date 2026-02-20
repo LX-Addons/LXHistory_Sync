@@ -254,8 +254,10 @@ jobs:
     steps:
       - name: 检查 SonarCloud 配置
         id: check_sonar
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          if [ -n "${{ secrets.SONAR_TOKEN }}" ]; then
+          if [ -n "$SONAR_TOKEN" ]; then
             echo "configured=true" >> $GITHUB_OUTPUT
           else
             echo "configured=false" >> $GITHUB_OUTPUT
