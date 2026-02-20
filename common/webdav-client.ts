@@ -61,7 +61,7 @@ export async function fetchWithRetry(
       lastError = error instanceof Error ? error : new Error(String(error))
 
       if (lastError.message === 'Authentication failed') {
-        throw lastError
+        throw lastError ?? new Error('Unknown error occurred')
       }
 
       if ('shouldRetry' in lastError && lastError.shouldRetry === false) {
@@ -84,7 +84,7 @@ export async function fetchWithRetry(
     }
   }
 
-  throw lastError
+  throw lastError ?? new Error('Unknown error occurred')
 }
 
 export async function prepareUploadContent(
@@ -299,7 +299,7 @@ export async function withRetry<T>(
     }
   }
 
-  throw lastError
+  throw lastError ?? new Error('Unknown error occurred')
 }
 
 export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyncResult> {
@@ -323,7 +323,7 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
         })
 
         if (!response.ok) {
-          return handleHttpError(response) as CloudSyncResult
+          return handleHttpError(response)
         }
 
         return {
