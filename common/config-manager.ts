@@ -222,11 +222,6 @@ export async function setSessionMasterPassword(password: string): Promise<void> 
     throw new Error('主密码尚未设置，请先设置主密码')
   }
 
-  const isValid = await verifyMasterPassword(password)
-  if (!isValid) {
-    throw new Error('主密码验证失败')
-  }
-
   const masterKey = await deriveMasterKey(password, masterPasswordData.salt)
 
   const rawKeyBuffer = await crypto.subtle.exportKey('raw', masterKey)

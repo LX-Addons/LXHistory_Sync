@@ -518,15 +518,7 @@ describe('Storage and Master Password Functions', () => {
       await expect(setSessionMasterPassword('password')).rejects.toThrow('主密码尚未设置')
     })
 
-    it('should throw error when password is invalid', async () => {
-      mockStores.store['master_password_data'] = {
-        salt: 'mock-salt-corr',
-        verificationData: 'mock-verification-corr',
-      }
-      await expect(setSessionMasterPassword('wrong-password')).rejects.toThrow('主密码验证失败')
-    })
-
-    it('should set session master key for valid password', async () => {
+    it('should set session master key', async () => {
       mockStores.store['master_password_data'] = {
         salt: 'mock-salt-pass',
         verificationData: 'mock-verification-pass',

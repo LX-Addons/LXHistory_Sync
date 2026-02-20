@@ -9,7 +9,15 @@ export class SyncLock {
   private static LOCK_KEY = 'sync_lock'
   private static LOCK_TIMEOUT = 300000
 
-  private static instanceId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  private static instanceId = SyncLock.generateInstanceId()
+
+  private static generateInstanceId(): string {
+    const timestamp = Date.now().toString(36)
+    const randomBytes = new Uint8Array(8)
+    crypto.getRandomValues(randomBytes)
+    const randomPart = Array.from(randomBytes, b => b.toString(16).padStart(2, '0')).join('')
+    return `${timestamp}-${randomPart}`
+  }
 
   /**
    * Acquire the sync lock.
