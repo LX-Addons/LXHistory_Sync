@@ -29,7 +29,6 @@ describe('logger', () => {
       consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
       consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
       consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      // 默认重置为 INFO
       setLogLevel(LogLevel.INFO)
     })
 
@@ -77,6 +76,84 @@ describe('logger', () => {
     })
   })
 
+  describe('log level filtering', () => {
+    let consoleDebugSpy: ReturnType<typeof vi.spyOn>
+    let consoleInfoSpy: ReturnType<typeof vi.spyOn>
+    let consoleWarnSpy: ReturnType<typeof vi.spyOn>
+    let consoleErrorSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      consoleDebugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+      consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+      consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('NONE level should not log anything', () => {
+      setLogLevel(LogLevel.NONE)
+      Logger.debug('test')
+      Logger.info('test')
+      Logger.warn('test')
+      Logger.error('test')
+      expect(consoleDebugSpy).not.toHaveBeenCalled()
+      expect(consoleInfoSpy).not.toHaveBeenCalled()
+      expect(consoleWarnSpy).not.toHaveBeenCalled()
+      expect(consoleErrorSpy).not.toHaveBeenCalled()
+    })
+
+    it('ERROR level should only log errors', () => {
+      setLogLevel(LogLevel.ERROR)
+      Logger.debug('test')
+      Logger.info('test')
+      Logger.warn('test')
+      Logger.error('test')
+      expect(consoleDebugSpy).not.toHaveBeenCalled()
+      expect(consoleInfoSpy).not.toHaveBeenCalled()
+      expect(consoleWarnSpy).not.toHaveBeenCalled()
+      expect(consoleErrorSpy).toHaveBeenCalled()
+    })
+
+    it('WARN level should log warn and error', () => {
+      setLogLevel(LogLevel.WARN)
+      Logger.debug('test')
+      Logger.info('test')
+      Logger.warn('test')
+      Logger.error('test')
+      expect(consoleDebugSpy).not.toHaveBeenCalled()
+      expect(consoleInfoSpy).not.toHaveBeenCalled()
+      expect(consoleWarnSpy).toHaveBeenCalled()
+      expect(consoleErrorSpy).toHaveBeenCalled()
+    })
+
+    it('INFO level should log info, warn and error', () => {
+      setLogLevel(LogLevel.INFO)
+      Logger.debug('test')
+      Logger.info('test')
+      Logger.warn('test')
+      Logger.error('test')
+      expect(consoleDebugSpy).not.toHaveBeenCalled()
+      expect(consoleInfoSpy).toHaveBeenCalled()
+      expect(consoleWarnSpy).toHaveBeenCalled()
+      expect(consoleErrorSpy).toHaveBeenCalled()
+    })
+
+    it('DEBUG level should log everything', () => {
+      setLogLevel(LogLevel.DEBUG)
+      Logger.debug('test')
+      Logger.info('test')
+      Logger.warn('test')
+      Logger.error('test')
+      expect(consoleDebugSpy).toHaveBeenCalled()
+      expect(consoleInfoSpy).toHaveBeenCalled()
+      expect(consoleWarnSpy).toHaveBeenCalled()
+      expect(consoleErrorSpy).toHaveBeenCalled()
+    })
+  })
+
   describe('module log levels', () => {
     let consoleDebugSpy: ReturnType<typeof vi.spyOn>
     let consoleInfoSpy: ReturnType<typeof vi.spyOn>
@@ -117,6 +194,14 @@ describe('logger', () => {
       Logger.info('test message', undefined, 'my-module')
       const call = consoleInfoSpy.mock.calls[0]
       expect(call[0]).toContain('[my-module]')
+    })
+
+    it('should fallback to global level when module level not set', () => {
+      setLogLevel(LogLevel.WARN)
+      Logger.info('test message', undefined, 'unknown-module')
+      expect(consoleInfoSpy).not.toHaveBeenCalled()
+      Logger.warn('test message', undefined, 'unknown-module')
+      expect(consoleInfoSpy).not.toHaveBeenCalled()
     })
   })
 })

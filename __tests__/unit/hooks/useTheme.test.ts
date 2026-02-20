@@ -3,13 +3,12 @@ import { renderHook, act } from '@testing-library/react'
 import { useTheme } from '~/hooks/useTheme'
 
 const mockStorage: Record<string, unknown> = {}
+const mockSetThemeConfig = vi.fn(async () => {})
 
 vi.mock('@plasmohq/storage/hook', () => ({
   useStorage: vi.fn((key: string, defaultValue: unknown) => {
     const value = mockStorage[key] ?? defaultValue
-    const setValue = async (newValue: unknown) => {
-      mockStorage[key] = newValue
-    }
+    const setValue = mockSetThemeConfig
     return [value, setValue]
   }),
 }))
@@ -23,6 +22,7 @@ describe('useTheme', () => {
   beforeEach(() => {
     Object.keys(mockStorage).forEach(key => delete mockStorage[key])
     vi.clearAllMocks()
+    mockSetThemeConfig.mockResolvedValue(undefined)
   })
 
   it('should return default theme config', () => {
@@ -48,5 +48,17 @@ describe('useTheme', () => {
     renderHook(() => useTheme())
 
     expect(applyTheme).toHaveBeenCalled()
+  })
+
+  it('should handle save error', async () => {
+    mockSetThemeConfig.mockRejectedValueOnce(new Error('Save failed'))
+
+    const { result } = renderHook(() => useTheme())
+
+    await act(async () => {
+      await result.current.handleSave({ preventDefault: vi.fn() } as unknown as React.FormEvent)
+    })
+
+    expect(result.current.status).toBe('保存失败')
   })
 })
