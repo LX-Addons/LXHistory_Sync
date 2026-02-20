@@ -272,9 +272,8 @@ jobs:
         if: steps.check_sonar.outputs.configured == 'true'
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with:
-          pattern: test-coverage-*
+          name: test-coverage-node20
           path: .
-          merge-multiple: true
 
       - name: SonarCloud 扫描
         if: steps.check_sonar.outputs.configured == 'true'
@@ -366,16 +365,6 @@ jobs:
           fi
           
           exit $EXIT_CODE
-
-      - name: 上传安全扫描产物
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
-        with:
-          name: security-scan-results
-          path: |
-            .trufflehog/
-          retention-days: ${{ needs.setup.outputs.artifact_retention }}
-          if-no-files-found: ignore
 
   build:
     name: 构建扩展
