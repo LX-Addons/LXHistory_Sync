@@ -250,7 +250,7 @@ jobs:
       pull-requests: write
       security-events: write
     needs: [setup, test]
-    if: needs.test.result == 'success'
+    if: needs.test.result == 'success' && secrets.SONAR_TOKEN != ''
     steps:
       - name: 检出仓库
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -266,9 +266,6 @@ jobs:
 
       - name: SonarCloud 扫描
         uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9
-        with:
-          args: >
-            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -374,7 +371,7 @@ jobs:
     permissions:
       contents: read
     needs: [setup, lint, test, sonarcloud, security]
-    if: needs.lint.result == 'success' && needs.test.result == 'success' && needs.sonarcloud.result == 'success' && needs.security.result == 'success'
+    if: needs.lint.result == 'success' && needs.test.result == 'success' && (needs.sonarcloud.result == 'success' || needs.sonarcloud.result == 'skipped') && (needs.security.result == 'success' || needs.security.result == 'skipped')
     outputs:
       version: ${{ steps.version.outputs.version }}
       name: ${{ steps.version.outputs.name }}
@@ -567,7 +564,7 @@ jobs:
       contents: read
       pull-requests: write
     needs: [setup, lint, test, sonarcloud, security, build, e2e]
-    if: always() && github.event_name == 'pull_request'
+    if: always() && github.event_name == 'pull_request' && (needs.lint.result == 'success' || needs.lint.result == 'failure') && (needs.test.result == 'success' || needs.test.result == 'failure')
     steps:
       - name: 检出仓库
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -774,8 +771,8 @@ jobs:
       github.actor == 'dependabot[bot]' &&
       needs.lint.result == 'success' &&
       needs.test.result == 'success' &&
-      needs.sonarcloud.result == 'success' &&
-      needs.security.result == 'success' &&
+      (needs.sonarcloud.result == 'success' || needs.sonarcloud.result == 'skipped') &&
+      (needs.security.result == 'success' || needs.security.result == 'skipped') &&
       needs.build.result == 'success' &&
       (needs.e2e.result == 'success' || needs.e2e.result == 'skipped')
     permissions:
