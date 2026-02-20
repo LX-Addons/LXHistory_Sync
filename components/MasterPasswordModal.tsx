@@ -70,7 +70,11 @@ export default function MasterPasswordModal({
       tabIndex={0}
       aria-label="关闭模态框"
     >
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
+      <div
+        className="modal-content"
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
+      >
         <div className="modal-header">
           <h3>{title}</h3>
           <button
