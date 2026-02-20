@@ -82,5 +82,5 @@ export default tseslint.config(
       eqeqeq: ['error', 'always'],
     },
   },
-  prettierConfig,
+  prettierConfig
 )
