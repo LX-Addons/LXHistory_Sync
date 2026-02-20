@@ -79,6 +79,7 @@ import {
   getMasterKey,
   validateAllConfig,
   loadConfigForSync,
+  throwConfigError,
 } from '~/common/config-manager'
 
 describe('validateUrl', () => {
@@ -657,6 +658,25 @@ describe('Storage and Master Password Functions', () => {
     it('should return null when no master key', async () => {
       const result = await loadConfigForSync(null)
       expect(result).toBeNull()
+    })
+
+    it('should return null when master key exists but no encrypted config', async () => {
+      const testKey = await webcrypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
+        'encrypt',
+        'decrypt',
+      ])
+      const result = await loadConfigForSync(testKey)
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('throwConfigError', () => {
+    it('should throw error with recovery info', () => {
+      expect(() => throwConfigError('配置未设置')).toThrow('配置错误')
+    })
+
+    it('should throw error for unknown error type', () => {
+      expect(() => throwConfigError('测试错误')).toThrow('未知错误')
     })
   })
 })

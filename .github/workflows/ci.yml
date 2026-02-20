@@ -160,7 +160,7 @@ jobs:
 
       - name: 安装依赖
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci --prefer-offline
+        run: npm ci --prefer-offline --ignore-scripts
 
       - name: TypeScript 类型检查
         run: npm run typecheck
@@ -218,7 +218,7 @@ jobs:
 
       - name: 安装依赖
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci --prefer-offline
+        run: npm ci --prefer-offline --ignore-scripts
 
       - name: 运行单元测试并生成覆盖率报告
         run: npm run test:unit -- --coverage
@@ -324,7 +324,7 @@ jobs:
 
       - name: 安装依赖
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci --prefer-offline
+        run: npm ci --prefer-offline --ignore-scripts
 
       - name: 检查密钥泄露
         uses: trufflesecurity/trufflehog@6961f2bace57ab32b23b3ba40f8f420f6bc7e004
@@ -400,7 +400,7 @@ jobs:
 
       - name: 安装依赖
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci --prefer-offline
+        run: npm ci --prefer-offline --ignore-scripts
 
       - name: 缓存 Plasmo 构建缓存
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306
@@ -523,7 +523,7 @@ jobs:
 
       - name: 安装依赖
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci --prefer-offline
+        run: npm ci --prefer-offline --ignore-scripts
 
       - name: 下载构建产物
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131

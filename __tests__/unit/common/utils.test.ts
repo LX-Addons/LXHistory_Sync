@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   extractOrigin,
   extractDomain,
@@ -7,10 +7,21 @@ import {
   formatTime,
   getErrorMessage,
   getCheckboxClassName,
+  ensureHostPermission,
+  applyTheme,
   APP_NAME,
   STATUS_CLEAR_DELAY,
 } from '~/common/utils'
 import type { CheckboxStyleType } from '~/common/types'
+
+const mockChromePermissions = {
+  contains: vi.fn(),
+  request: vi.fn(),
+}
+
+vi.stubGlobal('chrome', {
+  permissions: mockChromePermissions,
+})
 
 describe('utils', () => {
   describe('constants', () => {
@@ -140,6 +151,84 @@ describe('utils', () => {
 
     it('未知类型应该返回默认类名', () => {
       expect(getCheckboxClassName('unknown' as CheckboxStyleType)).toBe('custom-checkbox')
+    })
+  })
+
+  describe('ensureHostPermission', () => {
+    beforeEach(() => {
+      vi.clearAllMocks()
+    })
+
+    it('should return false for invalid URL', async () => {
+      const result = await ensureHostPermission('invalid-url')
+      expect(result).toBe(false)
+    })
+
+    it('should return true when permission already granted', async () => {
+      mockChromePermissions.contains.mockResolvedValue(true)
+      const result = await ensureHostPermission('https://example.com/path')
+      expect(result).toBe(true)
+      expect(mockChromePermissions.request).not.toHaveBeenCalled()
+    })
+
+    it('should request permission when not granted', async () => {
+      mockChromePermissions.contains.mockResolvedValue(false)
+      mockChromePermissions.request.mockResolvedValue(true)
+      const result = await ensureHostPermission('https://example.com/path')
+      expect(result).toBe(true)
+      expect(mockChromePermissions.request).toHaveBeenCalledWith({
+        origins: ['https://example.com/*'],
+      })
+    })
+
+    it('should return false when permission denied', async () => {
+      mockChromePermissions.contains.mockResolvedValue(false)
+      mockChromePermissions.request.mockResolvedValue(false)
+      const result = await ensureHostPermission('https://example.com/path')
+      expect(result).toBe(false)
+    })
+
+    it('should return false on error', async () => {
+      mockChromePermissions.contains.mockRejectedValue(new Error('Permission error'))
+      const result = await ensureHostPermission('https://example.com/path')
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('applyTheme', () => {
+    let root: HTMLElement
+
+    beforeEach(() => {
+      root = document.documentElement
+      root.classList.remove('dark-theme', 'light-theme')
+    })
+
+    it('should apply dark theme', () => {
+      applyTheme('dark')
+      expect(root.classList.contains('dark-theme')).toBe(true)
+      expect(root.classList.contains('light-theme')).toBe(false)
+    })
+
+    it('should apply light theme', () => {
+      applyTheme('light')
+      expect(root.classList.contains('light-theme')).toBe(true)
+      expect(root.classList.contains('dark-theme')).toBe(false)
+    })
+
+    it('should apply auto theme with dark mode preference', () => {
+      const matchMediaMock = vi.fn().mockReturnValue({ matches: true })
+      vi.stubGlobal('matchMedia', matchMediaMock)
+      applyTheme('auto')
+      expect(root.classList.contains('dark-theme')).toBe(true)
+      vi.unstubAllGlobals()
+    })
+
+    it('should apply auto theme with light mode preference', () => {
+      const matchMediaMock = vi.fn().mockReturnValue({ matches: false })
+      vi.stubGlobal('matchMedia', matchMediaMock)
+      applyTheme('auto')
+      expect(root.classList.contains('light-theme')).toBe(true)
+      vi.unstubAllGlobals()
     })
   })
 })
