@@ -15,7 +15,7 @@ import { useHistory } from '~hooks/useHistory'
 import { useSync } from '~hooks/useSync'
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG } from '~store'
 import { applyTheme } from '~common/utils'
-import { verifyMasterPassword } from '~common/config-manager'
+import { verifyMasterPassword, setSessionMasterPassword } from '~common/config-manager'
 import type { ThemeType } from '~common/types'
 import './style.css'
 
@@ -205,6 +205,7 @@ const Popup = () => {
           onVerify={async (password: string) => {
             const isValid = await verifyMasterPassword(password)
             if (isValid) {
+              await setSessionMasterPassword(password)
               await retryAfterUnlock()
             }
             return isValid

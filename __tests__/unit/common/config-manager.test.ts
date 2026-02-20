@@ -31,24 +31,29 @@ vi.mock('@plasmohq/storage', () => {
 
 vi.mock('~/common/crypto', async () => {
   const actual = await vi.importActual('~/common/crypto')
-  const testKey = await webcrypto.subtle.generateKey(
-    { name: 'AES-GCM', length: 256 },
-    true,
-    ['encrypt', 'decrypt']
-  )
+  const testKey = await webcrypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
+    'encrypt',
+    'decrypt',
+  ])
   return {
     ...actual,
     hashPassword: vi.fn(async (password: string) => ({
       salt: 'mock-salt-' + password.slice(0, 4),
       verificationData: 'mock-verification-' + password.slice(0, 4),
     })),
-    verifyPasswordWithSalt: vi.fn(async (password: string, salt: string, verificationData: string) => {
-      return verificationData === 'mock-verification-' + password.slice(0, 4) && salt === 'mock-salt-' + password.slice(0, 4)
-    }),
+    verifyPasswordWithSalt: vi.fn(
+      async (password: string, salt: string, verificationData: string) => {
+        return (
+          verificationData === 'mock-verification-' + password.slice(0, 4) &&
+          salt === 'mock-salt-' + password.slice(0, 4)
+        )
+      }
+    ),
     deriveMasterKey: vi.fn(async () => testKey),
     encryptData: vi.fn(async (data: string) => 'encrypted-' + data),
     decryptData: vi.fn(async (data: string) => data.replace('encrypted-', '')),
-    calculateKeyStrength: (actual as { calculateKeyStrength: (key: string) => string }).calculateKeyStrength,
+    calculateKeyStrength: (actual as { calculateKeyStrength: (key: string) => string })
+      .calculateKeyStrength,
   }
 })
 
@@ -61,7 +66,7 @@ import {
   createValidationResult,
   isMasterPasswordUnlocked,
   hasMasterPasswordSet,
-  setUnlockedState,
+  clearUnlockedState,
   getSessionConfig,
   setSessionConfig,
   clearSessionConfig,
@@ -354,15 +359,11 @@ describe('Storage and Master Password Functions', () => {
     })
   })
 
-  describe('setUnlockedState', () => {
-    it('should remove master key when setting unlocked to false', async () => {
+  describe('clearUnlockedState', () => {
+    it('should remove master key from session', async () => {
       mockStores.sessionStore['master_key_raw'] = 'dGVzdC1rZXktZGF0YQ=='
-      await setUnlockedState(false)
+      await clearUnlockedState()
       expect(mockStores.sessionStore['master_key_raw']).toBeUndefined()
-    })
-
-    it('should not throw when unlocked is true', async () => {
-      await expect(setUnlockedState(true)).resolves.not.toThrow()
     })
   })
 
@@ -496,7 +497,10 @@ describe('Storage and Master Password Functions', () => {
   describe('setMasterPassword', () => {
     it('should set master password data', async () => {
       await setMasterPassword('TestPassword123')
-      const data = mockStores.store['master_password_data'] as { salt: string; verificationData: string }
+      const data = mockStores.store['master_password_data'] as {
+        salt: string
+        verificationData: string
+      }
       expect(data).toBeDefined()
       expect(data.salt).toBeDefined()
       expect(data.verificationData).toBeDefined()

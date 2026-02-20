@@ -247,8 +247,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      pull-requests: write
-      security-events: write
     needs: [setup, test]
     if: needs.test.result == 'success'
     steps:

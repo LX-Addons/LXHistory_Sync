@@ -53,7 +53,7 @@ export function useSync(onSyncComplete?: () => void) {
   }
 
   const syncToCloud = async () => {
-    if (isSyncing) return
+    if (isSyncing || unlockRequired.required) return
     if (!(await checkPermission())) return
 
     const canProceed = await checkUnlockStatus()
@@ -95,7 +95,7 @@ export function useSync(onSyncComplete?: () => void) {
   }
 
   const syncFromCloud = async () => {
-    if (isSyncing) return
+    if (isSyncing || unlockRequired.required) return
     if (!(await checkPermission())) return
 
     const canProceed = await checkUnlockStatus()

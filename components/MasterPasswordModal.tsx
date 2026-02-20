@@ -47,6 +47,7 @@ export default function MasterPasswordModal({
   }
 
   const handleClose = () => {
+    if (isLoading) return
     setPassword('')
     setError('')
     onClose()

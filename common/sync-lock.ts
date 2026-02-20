@@ -11,6 +11,15 @@ export class SyncLock {
 
   private static instanceId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
+  /**
+   * Acquire the sync lock.
+   *
+   * Note: This implementation uses a read-check-write pattern which is not atomic.
+   * In the current architecture, all SyncLock calls are executed in the background
+   * Service Worker context (including message requests from popup), so there is no
+   * cross-context concurrency issue. If future changes involve direct calls from
+   * other extension contexts, consider using a more robust locking mechanism.
+   */
   static async acquire(): Promise<boolean> {
     try {
       const result = await chrome.storage.session.get(SyncLock.LOCK_KEY)
@@ -97,7 +106,19 @@ export class SyncLock {
   static async getLockInfo(): Promise<LockData | null> {
     try {
       const result = await chrome.storage.session.get(SyncLock.LOCK_KEY)
-      return (result[SyncLock.LOCK_KEY] as LockData) || null
+      const lockData = result[SyncLock.LOCK_KEY] as LockData | undefined
+
+      if (!lockData) {
+        return null
+      }
+
+      const now = Date.now()
+      if (now - lockData.timestamp >= SyncLock.LOCK_TIMEOUT) {
+        await chrome.storage.session.remove(SyncLock.LOCK_KEY)
+        return null
+      }
+
+      return lockData
     } catch (error) {
       Logger.error('Failed to get lock info', error)
       return null

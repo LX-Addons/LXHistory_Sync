@@ -29,13 +29,11 @@ export async function isMasterPasswordUnlocked(): Promise<boolean> {
   }
 }
 
-export async function setUnlockedState(unlocked: boolean): Promise<void> {
+export async function clearUnlockedState(): Promise<void> {
   try {
-    if (!unlocked) {
-      await sessionStorage.remove('master_key_raw')
-    }
+    await sessionStorage.remove('master_key_raw')
   } catch (error) {
-    Logger.error('Failed to set unlocked state', error)
+    Logger.error('Failed to clear unlocked state', error)
   }
 }
 
@@ -236,7 +234,6 @@ export async function setSessionMasterPassword(password: string): Promise<void> 
   const rawKeyBase64 = btoa(String.fromCharCode(...rawKeyBytes))
 
   await sessionStorage.set('master_key_raw', rawKeyBase64)
-  await setUnlockedState(true)
 }
 
 export async function clearMasterPassword(): Promise<void> {
@@ -254,8 +251,7 @@ export async function clearMasterPassword(): Promise<void> {
   }
 
   await storage.remove('master_password_data')
-  await sessionStorage.remove('master_key_raw')
-  await setUnlockedState(false)
+  await clearUnlockedState()
   await clearSessionConfig()
 }
 

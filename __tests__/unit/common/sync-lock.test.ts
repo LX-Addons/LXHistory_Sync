@@ -120,6 +120,16 @@ describe('SyncLock', () => {
       expect(info?.timestamp).toBeDefined()
       expect(info?.instanceId).toBeDefined()
     })
+
+    it('should return null when lock expired', async () => {
+      mockSessionStorage['sync_lock'] = {
+        timestamp: Date.now() - 400000,
+        instanceId: 'old-instance',
+      }
+
+      const info = await SyncLock.getLockInfo()
+      expect(info).toBeNull()
+    })
   })
 
   describe('lock flow', () => {
