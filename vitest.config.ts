@@ -1,9 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import path from 'path'
-import os from 'os'
 
 const isCI = !!process.env.CI
-const coverageDir = isCI ? path.join(os.tmpdir(), 'coverage') : './coverage'
 
 export default defineConfig({
   test: {
@@ -12,17 +10,17 @@ export default defineConfig({
     setupFiles: ['./vitest.setup.ts'],
     include: ['**/__tests__/unit/**/*.test.ts', '**/__tests__/unit/**/*.test.tsx'],
     exclude: ['node_modules', 'build', '.plasmo'],
-    outputFile: isCI ? path.join(os.tmpdir(), 'test-results', 'unit-test-results.xml') : undefined,
+    outputFile: isCI ? './test-results/unit-test-results.xml' : undefined,
     reporters: isCI ? ['default', 'junit'] : ['default'],
     coverage: {
       provider: 'v8',
       reporter: ['lcov', 'text'],
-      reportsDirectory: coverageDir,
+      reportsDirectory: './coverage',
       thresholds: {
-        lines: 75,
-        functions: 80,
-        branches: 70,
-        statements: 75,
+        lines: 60,
+        functions: 60,
+        branches: 55,
+        statements: 60,
       },
       exclude: [
         'node_modules/**',

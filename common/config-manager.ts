@@ -5,14 +5,47 @@ import {
   decryptData,
   deriveMasterKey,
   encryptData,
-  generateSalt,
   hashPassword,
+  verifyPasswordWithSalt,
 } from './crypto'
 import { Logger } from './logger'
 import type { CloudSyncResult, KeyStrength, WebDAVConfig } from './types'
 
 const storage = new Storage()
 const sessionStorage = new Storage({ area: 'session' })
+
+export interface MasterPasswordData {
+  salt: string
+  verificationData: string
+}
+
+export async function isMasterPasswordUnlocked(): Promise<boolean> {
+  try {
+    const rawKeyData = await sessionStorage.get<string>('master_key_raw')
+    return !!rawKeyData
+  } catch (error) {
+    Logger.error('Failed to check unlocked state', error)
+    return false
+  }
+}
+
+export async function clearUnlockedState(): Promise<void> {
+  try {
+    await sessionStorage.remove('master_key_raw')
+  } catch (error) {
+    Logger.error('Failed to clear unlocked state', error)
+  }
+}
+
+export async function hasMasterPasswordSet(): Promise<boolean> {
+  try {
+    const masterPasswordData = await storage.get<MasterPasswordData>('master_password_data')
+    return !!(masterPasswordData && masterPasswordData.salt && masterPasswordData.verificationData)
+  } catch (error) {
+    Logger.error('Failed to check master password', error)
+    return false
+  }
+}
 
 export async function getSessionConfig(): Promise<WebDAVConfig | null> {
   try {
@@ -90,32 +123,57 @@ export function getErrorRecovery(error: Error): ErrorRecovery {
   }
 }
 
+export async function getSessionMasterKey(): Promise<CryptoKey | null> {
+  try {
+    const rawKeyData = await sessionStorage.get<string>('master_key_raw')
+    if (!rawKeyData) {
+      return null
+    }
+
+    const keyBytes = new Uint8Array(
+      atob(rawKeyData)
+        .split('')
+        .map(c => c.charCodeAt(0))
+    )
+
+    return await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM', length: 256 }, false, [
+      'encrypt',
+      'decrypt',
+    ])
+  } catch (error) {
+    Logger.error('Failed to get session master key', error)
+    return null
+  }
+}
+
 export async function getMasterKey(): Promise<CryptoKey | null> {
-  const masterPasswordData = await storage.get<{ hash: string; salt: string }>(
-    'master_password_data'
-  )
-  if (!masterPasswordData || !masterPasswordData.salt) {
-    return null
+  const sessionKey = await getSessionMasterKey()
+  if (sessionKey) {
+    return sessionKey
   }
-
-  const inputPassword = await sessionStorage.get<string>('master_password_input')
-  if (!inputPassword) {
-    return null
-  }
-
-  return await deriveMasterKey(inputPassword, masterPasswordData.salt)
+  return null
 }
 
 export async function verifyMasterPassword(password: string): Promise<boolean> {
-  const masterPasswordData = await storage.get<{ hash: string; salt: string }>(
-    'master_password_data'
-  )
-  if (!masterPasswordData || !masterPasswordData.hash) {
+  const masterPasswordData = await storage.get<MasterPasswordData>('master_password_data')
+
+  if (!masterPasswordData) {
     return false
   }
 
-  const inputHash = await hashPassword(password)
-  return inputHash === masterPasswordData.hash
+  if (!masterPasswordData.salt || !masterPasswordData.verificationData) {
+    Logger.warn('检测到旧格式的主密码数据，需要重新设置主密码')
+    await storage.remove('master_password_data')
+    return false
+  }
+
+  const isValid = await verifyPasswordWithSalt(
+    password,
+    masterPasswordData.salt,
+    masterPasswordData.verificationData
+  )
+
+  return isValid
 }
 
 export async function setMasterPassword(password: string): Promise<void> {
@@ -134,9 +192,8 @@ export async function setMasterPassword(password: string): Promise<void> {
     configToReencrypt = await getConfig()
   }
 
-  const hash = await hashPassword(password)
-  const salt = generateSalt()
-  await storage.set('master_password_data', { hash, salt })
+  const { salt, verificationData } = await hashPassword(password)
+  await storage.set('master_password_data', { salt, verificationData })
 
   if (configToReencrypt && (configToReencrypt.password || configToReencrypt.encryption?.key)) {
     const newMasterKey = await deriveMasterKey(password, salt)
@@ -159,7 +216,19 @@ export async function setMasterPassword(password: string): Promise<void> {
 }
 
 export async function setSessionMasterPassword(password: string): Promise<void> {
-  await sessionStorage.set('master_password_input', password)
+  const masterPasswordData = await storage.get<MasterPasswordData>('master_password_data')
+
+  if (!masterPasswordData || !masterPasswordData.salt) {
+    throw new Error('主密码尚未设置，请先设置主密码')
+  }
+
+  const masterKey = await deriveMasterKey(password, masterPasswordData.salt)
+
+  const rawKeyBuffer = await crypto.subtle.exportKey('raw', masterKey)
+  const rawKeyBytes = new Uint8Array(rawKeyBuffer)
+  const rawKeyBase64 = btoa(String.fromCharCode(...rawKeyBytes))
+
+  await sessionStorage.set('master_key_raw', rawKeyBase64)
 }
 
 export async function clearMasterPassword(): Promise<void> {
@@ -177,7 +246,7 @@ export async function clearMasterPassword(): Promise<void> {
   }
 
   await storage.remove('master_password_data')
-  await sessionStorage.remove('master_password_input')
+  await clearUnlockedState()
   await clearSessionConfig()
 }
 

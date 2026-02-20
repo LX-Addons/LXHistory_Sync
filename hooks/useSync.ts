@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useStorage } from '@plasmohq/storage/hook'
 import { ensureHostPermission } from '~common/utils'
 import { Logger } from '~common/logger'
 import { sendToBackground } from '~common/messaging'
+import { hasMasterPasswordSet, isMasterPasswordUnlocked } from '~common/config-manager'
 import type { WebDAVConfig, HistoryItem } from '~common/types'
 
 export interface SyncStatusState {
@@ -16,12 +17,24 @@ interface SyncResponse {
   error?: string
 }
 
+export interface UnlockRequiredState {
+  required: boolean
+  action?: 'syncToCloud' | 'syncFromCloud'
+}
+
 export function useSync(onSyncComplete?: () => void) {
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatusState | null>(null)
   const [webdavConfig] = useStorage<WebDAVConfig | null>('webdav_config', null)
+  const [unlockRequired, setUnlockRequired] = useState<UnlockRequiredState>({ required: false })
 
-  const checkPermission = async () => {
+  const unlockRequiredRef = useRef(unlockRequired)
+  unlockRequiredRef.current = unlockRequired
+
+  const isSyncingRef = useRef(isSyncing)
+  isSyncingRef.current = isSyncing
+
+  const checkPermission = useCallback(async () => {
     if (webdavConfig?.url) {
       const permissionGranted = await ensureHostPermission(webdavConfig.url)
       if (!permissionGranted) {
@@ -33,11 +46,27 @@ export function useSync(onSyncComplete?: () => void) {
       }
     }
     return true
-  }
+  }, [webdavConfig?.url])
 
-  const syncToCloud = async () => {
-    if (isSyncing) return
+  const checkUnlockStatus = useCallback(async (): Promise<boolean> => {
+    const hasPassword = await hasMasterPasswordSet()
+    if (!hasPassword) {
+      return true
+    }
+
+    const isUnlocked = await isMasterPasswordUnlocked()
+    return isUnlocked
+  }, [])
+
+  const syncToCloud = useCallback(async () => {
+    if (isSyncingRef.current || unlockRequiredRef.current.required) return
     if (!(await checkPermission())) return
+
+    const canProceed = await checkUnlockStatus()
+    if (!canProceed) {
+      setUnlockRequired({ required: true, action: 'syncToCloud' })
+      return
+    }
 
     setIsSyncing(true)
     setSyncStatus({ message: '正在同步到云端...', type: 'info' })
@@ -69,11 +98,17 @@ export function useSync(onSyncComplete?: () => void) {
     } finally {
       setIsSyncing(false)
     }
-  }
+  }, [checkPermission, checkUnlockStatus, onSyncComplete])
 
-  const syncFromCloud = async () => {
-    if (isSyncing) return
+  const syncFromCloud = useCallback(async () => {
+    if (isSyncingRef.current || unlockRequiredRef.current.required) return
     if (!(await checkPermission())) return
+
+    const canProceed = await checkUnlockStatus()
+    if (!canProceed) {
+      setUnlockRequired({ required: true, action: 'syncFromCloud' })
+      return
+    }
 
     setIsSyncing(true)
     setSyncStatus({ message: '正在从云端同步...', type: 'info' })
@@ -100,7 +135,23 @@ export function useSync(onSyncComplete?: () => void) {
     } finally {
       setIsSyncing(false)
     }
-  }
+  }, [checkPermission, checkUnlockStatus, onSyncComplete])
+
+  const clearUnlockRequired = useCallback(() => {
+    unlockRequiredRef.current = { required: false }
+    setUnlockRequired({ required: false })
+  }, [])
+
+  const retryAfterUnlock = useCallback(async () => {
+    const action = unlockRequiredRef.current.action
+    clearUnlockRequired()
+
+    if (action === 'syncToCloud') {
+      await syncToCloud()
+    } else if (action === 'syncFromCloud') {
+      await syncFromCloud()
+    }
+  }, [clearUnlockRequired, syncToCloud, syncFromCloud])
 
   return {
     isSyncing,
@@ -108,5 +159,8 @@ export function useSync(onSyncComplete?: () => void) {
     syncToCloud,
     syncFromCloud,
     hasWebDAVConfig: !!webdavConfig?.url && !!webdavConfig?.username,
+    unlockRequired,
+    clearUnlockRequired,
+    retryAfterUnlock,
   }
 }

@@ -10,10 +10,12 @@ import ThemeTab from '~components/ThemeTab'
 import GeneralTab from '~components/GeneralTab'
 import SecurityTab from '~components/SecurityTab'
 import SyncHistoryTab from '~components/SyncHistoryTab'
+import MasterPasswordModal from '~components/MasterPasswordModal'
 import { useHistory } from '~hooks/useHistory'
 import { useSync } from '~hooks/useSync'
 import { STORAGE_KEYS, DEFAULT_THEME_CONFIG } from '~store'
 import { applyTheme } from '~common/utils'
+import { verifyMasterPassword, setSessionMasterPassword } from '~common/config-manager'
 import type { ThemeType } from '~common/types'
 import './style.css'
 
@@ -36,8 +38,16 @@ const Popup = () => {
     generalConfig,
   } = useHistory()
 
-  const { isSyncing, syncStatus, syncToCloud, syncFromCloud, hasWebDAVConfig } =
-    useSync(refreshHistory)
+  const {
+    isSyncing,
+    syncStatus,
+    syncToCloud,
+    syncFromCloud,
+    hasWebDAVConfig,
+    unlockRequired,
+    clearUnlockRequired,
+    retryAfterUnlock,
+  } = useSync(refreshHistory)
 
   const [themeConfig] = useStorage<{ theme: ThemeType }>(STORAGE_KEYS.THEME_CONFIG, {
     theme: DEFAULT_THEME_CONFIG.theme as ThemeType,
@@ -188,6 +198,21 @@ const Popup = () => {
             </>
           )}
         </div>
+
+        <MasterPasswordModal
+          isOpen={unlockRequired.required}
+          onClose={clearUnlockRequired}
+          onVerify={async (password: string) => {
+            const isValid = await verifyMasterPassword(password)
+            if (isValid) {
+              await setSessionMasterPassword(password)
+              await retryAfterUnlock()
+            }
+            return isValid
+          }}
+          title="解锁主密码"
+          description="请输入主密码以解锁并继续同步操作"
+        />
       </div>
     </ErrorBoundary>
   )

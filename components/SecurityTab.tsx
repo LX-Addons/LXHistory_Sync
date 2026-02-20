@@ -1,7 +1,40 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { FormEvent } from 'react'
 import { useMasterPassword } from '~hooks/useMasterPassword'
 import StatusMessage from '~components/StatusMessage'
+import { calculateKeyStrength } from '~common/crypto'
+import type { KeyStrength } from '~common/types'
+
+function PasswordStrengthIndicator({ password }: { password: string }) {
+  const strength: KeyStrength = useMemo(() => calculateKeyStrength(password), [password])
+
+  if (!password) return null
+
+  const strengthConfig = {
+    weak: { label: '弱', color: '#ef4444', width: '33%' },
+    medium: { label: '中', color: '#f59e0b', width: '66%' },
+    strong: { label: '强', color: '#22c55e', width: '100%' },
+  }
+
+  const config = strengthConfig[strength]
+
+  return (
+    <div className="password-strength-indicator">
+      <div className="strength-bar-container">
+        <div
+          className="strength-bar"
+          style={{
+            width: config.width,
+            backgroundColor: config.color,
+          }}
+        />
+      </div>
+      <span className="strength-label" style={{ color: config.color }}>
+        密码强度: {config.label}
+      </span>
+    </div>
+  )
+}
 
 export default function SecurityTab() {
   const {
@@ -144,7 +177,7 @@ export default function SecurityTab() {
             <p className="form-description-text">
               主密码用于加密您的WebDAV凭证和加密密钥，请妥善保管。
               <br />
-              主密码长度至少为8个字符，建议使用强密码。
+              主密码长度至少为12个字符，必须包含大小写字母和数字。
             </p>
           </div>
 
@@ -156,7 +189,7 @@ export default function SecurityTab() {
                 type={showPassword ? 'text' : 'password'}
                 value={masterPassword}
                 onChange={e => setMasterPassword(e.target.value)}
-                placeholder="请输入主密码（至少8个字符）"
+                placeholder="请输入主密码（至少12个字符）"
                 required
               />
               <button
@@ -168,6 +201,7 @@ export default function SecurityTab() {
                 {showPassword ? '🙈' : '👁'}
               </button>
             </div>
+            <PasswordStrengthIndicator password={masterPassword} />
           </div>
 
           <div className="form-group">

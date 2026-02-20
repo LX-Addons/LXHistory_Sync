@@ -2,21 +2,21 @@ import { Storage } from '@plasmohq/storage'
 import { getLocalHistory } from '~common/history'
 import { syncToCloud } from '~common/webdav'
 import { Logger } from '~common/logger'
+import { SyncLock } from '~common/sync-lock'
 import type { GeneralConfig, WebDAVConfig } from '~common/types'
+import type { MasterPasswordData } from '~common/config-manager'
 
 const storage = new Storage()
 const DEFAULT_SYNC_INTERVAL = 60
 const KEEPALIVE_ALARM_NAME = 'keepalive'
 const SYNC_ALARM_NAME = 'sync'
-let isSyncing = false
 
 export async function performScheduledSync() {
-  if (isSyncing) {
+  const acquired = await SyncLock.acquire()
+  if (!acquired) {
     Logger.info('Scheduled sync already in progress, skipping')
     return
   }
-
-  isSyncing = true
 
   try {
     Logger.info('Performing scheduled sync')
@@ -28,10 +28,8 @@ export async function performScheduledSync() {
       return
     }
 
-    const masterPasswordData = await storage.get<{ hash: string; salt: string }>(
-      'master_password_data'
-    )
-    if (masterPasswordData?.hash) {
+    const masterPasswordData = await storage.get<MasterPasswordData>('master_password_data')
+    if (masterPasswordData?.salt && masterPasswordData?.verificationData) {
       Logger.warn('Auto sync is not available when master password is set')
       return
     }
@@ -55,7 +53,7 @@ export async function performScheduledSync() {
   } catch (error) {
     Logger.error('Scheduled sync failed', error)
   } finally {
-    isSyncing = false
+    await SyncLock.release()
   }
 }
 

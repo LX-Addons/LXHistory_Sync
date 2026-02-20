@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FC, FormEvent } from 'react'
 import type { WebDAVConfig, EncryptionType, CheckboxStyleType, KeyStrength } from '~common/types'
+import type { MasterPasswordData } from '~common/config-manager'
 import { validateUrl, validatePassword, validateEncryptionKey } from '~common/webdav'
 import { getCheckboxClassName } from '~common/utils'
 import { useStorage } from '@plasmohq/storage/hook'
@@ -22,12 +23,9 @@ const ConfigForm: FC<ConfigFormProps> = ({
 }) => {
   const [keyStrength, setKeyStrength] = useState<KeyStrength>('weak')
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
-  const [masterPasswordData] = useStorage<{ hash: string; salt: string } | null>(
-    'master_password_data',
-    null
-  )
+  const [masterPasswordData] = useStorage<MasterPasswordData | null>('master_password_data', null)
 
-  const hasMasterPassword = !!masterPasswordData?.hash
+  const hasMasterPassword = !!(masterPasswordData?.salt && masterPasswordData?.verificationData)
 
   const getStrengthColor = (strength: KeyStrength): string => {
     switch (strength) {

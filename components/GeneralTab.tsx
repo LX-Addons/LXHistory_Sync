@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { Storage } from '@plasmohq/storage'
 import type { IconSourceType, CheckboxStyleType, ExportResult } from '~common/types'
+import type { MasterPasswordData } from '~common/config-manager'
 import { sendToBackground } from '~common/messaging'
 import { useGeneralConfig } from '~hooks/useGeneralConfig'
 import CheckboxField from '~components/CheckboxField'
@@ -18,10 +19,8 @@ export default function GeneralTab() {
 
   useEffect(() => {
     const checkMasterPassword = async () => {
-      const masterPasswordData = await storage.get<{ hash: string; salt: string }>(
-        'master_password_data'
-      )
-      setHasMasterPassword(!!masterPasswordData?.hash)
+      const masterPasswordData = await storage.get<MasterPasswordData>('master_password_data')
+      setHasMasterPassword(!!(masterPasswordData?.salt && masterPasswordData?.verificationData))
     }
     checkMasterPassword()
   }, [])

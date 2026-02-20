@@ -1,6 +1,4 @@
 import { defineConfig, devices } from '@playwright/test'
-import * as os from 'os'
-import * as path from 'path'
 
 const isCI = !!process.env.CI
 
@@ -14,9 +12,7 @@ export default defineConfig({
   },
   retries: isCI ? 2 : 0,
   workers: isCI ? 1 : undefined,
-  reporter: isCI
-    ? [['html', { outputFolder: path.join(os.tmpdir(), 'playwright-report') }], ['list']]
-    : [['list']],
+  reporter: isCI ? [['html', { outputFolder: './playwright-report' }], ['list']] : [['list']],
   use: {
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',

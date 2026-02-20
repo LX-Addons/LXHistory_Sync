@@ -160,7 +160,7 @@ jobs:
 
       - name: 安装依赖
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci --prefer-offline
+        run: npm ci --prefer-offline --ignore-scripts
 
       - name: TypeScript 类型检查
         run: npm run typecheck
@@ -218,13 +218,12 @@ jobs:
 
       - name: 安装依赖
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci --prefer-offline
+        run: npm ci --prefer-offline --ignore-scripts
 
       - name: 运行单元测试并生成覆盖率报告
         run: npm run test:unit -- --coverage
 
       - name: 上传覆盖率到 Codecov
-        if: always()
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
         with:
           files: ./coverage/lcov.info
@@ -232,12 +231,65 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: SonarCloud 代码扫描
+      - name: 上传测试产物
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: test-coverage-node${{ matrix.node-version }}
+          path: |
+            coverage/
+            test-results/
+          retention-days: ${{ needs.setup.outputs.artifact_retention }}
+          if-no-files-found: warn
+
+  sonarcloud:
+    name: SonarCloud 代码扫描
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    needs: [setup, test]
+    if: needs.test.result == 'success'
+    steps:
+      - name: 检查 SonarCloud 配置
+        id: check_sonar
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -n "$SONAR_TOKEN" ]; then
+            echo "configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "::warning::SONAR_TOKEN 未配置，跳过 SonarCloud 扫描"
+          fi
+
+      - name: 检出仓库
+        if: steps.check_sonar.outputs.configured == 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+
+      - name: 下载测试覆盖率产物
+        if: steps.check_sonar.outputs.configured == 'true'
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: test-coverage-node20
+          path: .
+
+      - name: SonarCloud 扫描
+        if: steps.check_sonar.outputs.configured == 'true'
         uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9
-        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: 上传 SonarCloud 产物
+        if: always() && steps.check_sonar.outputs.configured == 'true'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: sonarcloud-report
+          path: .scannerwork/
+          retention-days: ${{ needs.setup.outputs.artifact_retention }}
+          if-no-files-found: warn
 
   security:
     name: 安全扫描
@@ -272,7 +324,7 @@ jobs:
 
       - name: 安装依赖
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci --prefer-offline
+        run: npm ci --prefer-offline --ignore-scripts
 
       - name: 检查密钥泄露
         uses: trufflesecurity/trufflehog@6961f2bace57ab32b23b3ba40f8f420f6bc7e004
@@ -320,8 +372,8 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-    needs: [setup, lint, test]
-    if: always() && (needs.lint.result == 'success') && (needs.test.result == 'success')
+    needs: [setup, lint, test, sonarcloud, security]
+    if: needs.lint.result == 'success' && needs.test.result == 'success' && (needs.sonarcloud.result == 'success' || needs.sonarcloud.result == 'skipped') && (needs.security.result == 'success' || needs.security.result == 'skipped')
     outputs:
       version: ${{ steps.version.outputs.version }}
       name: ${{ steps.version.outputs.name }}
@@ -348,7 +400,7 @@ jobs:
 
       - name: 安装依赖
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci --prefer-offline
+        run: npm ci --prefer-offline --ignore-scripts
 
       - name: 缓存 Plasmo 构建缓存
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306
@@ -447,7 +499,7 @@ jobs:
     permissions:
       contents: read
     needs: [setup, build]
-    if: always() && needs.build.result == 'success' && github.event.inputs.skip_e2e != 'true'
+    if: needs.build.result == 'success' && github.event.inputs.skip_e2e != 'true'
     steps:
       - name: 检出仓库
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -471,7 +523,7 @@ jobs:
 
       - name: 安装依赖
         if: steps.npm-cache.outputs.cache-hit != 'true'
-        run: npm ci --prefer-offline
+        run: npm ci --prefer-offline --ignore-scripts
 
       - name: 下载构建产物
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
@@ -504,6 +556,7 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: ${{ needs.setup.outputs.artifact_retention }}
+          if-no-files-found: warn
 
   pr-comment:
     name: PR评论
@@ -512,8 +565,8 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    needs: [setup, lint, test, security, build, e2e]
-    if: always() && github.event_name == 'pull_request'
+    needs: [setup, lint, test, sonarcloud, security, build, e2e]
+    if: always() && github.event_name == 'pull_request' && (needs.lint.result == 'success' || needs.lint.result == 'failure') && (needs.test.result == 'success' || needs.test.result == 'failure')
     steps:
       - name: 检出仓库
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -540,6 +593,7 @@ jobs:
             const setupResult = '${{ needs.setup.result }}';
             const lintResult = '${{ needs.lint.result }}';
             const testResult = '${{ needs.test.result }}';
+            const sonarcloudResult = '${{ needs.sonarcloud.result }}';
             const securityResult = '${{ needs.security.result }}';
             const buildResult = '${{ needs.build.result }}';
             const e2eResult = '${{ needs.e2e.result }}';
@@ -573,20 +627,22 @@ jobs:
             body += `| 🚀 | **环境准备** | ${statusEmoji(setupResult)} | 缓存与产物配置 |\n`;
             body += `| 🔍 | **代码检查** | ${statusEmoji(lintResult)} | TypeScript + ESLint + Prettier |\n`;
             body += `| 🧪 | **单元测试** | ${statusEmoji(testResult)} | Node.js 20/22 多版本测试 |\n`;
+            body += `| 📊 | **SonarCloud** | ${statusEmoji(sonarcloudResult)} | 代码质量与覆盖率扫描 |\n`;
             body += `| 🛡️ | **安全扫描** | ${statusEmoji(securityResult)} | 密钥泄露 + 依赖审计 |\n`;
             body += `| 📦 | **扩展构建** | ${statusEmoji(buildResult)} | Plasmo 生产构建 |\n`;
             body += `| 🎭 | **E2E 测试** | ${statusEmoji(e2eResult)} | Playwright 浏览器测试 |\n\n`;
             
             body += `### 🏷️ 状态徽章\n\n`;
-            body += `${getBadge('代码检查', lintResult)} ${getBadge('单元测试', testResult)} ${getBadge('安全扫描', securityResult)} ${getBadge('构建', buildResult)} ${getBadge('E2E测试', e2eResult)}\n\n`;
+            body += `${getBadge('代码检查', lintResult)} ${getBadge('单元测试', testResult)} ${getBadge('SonarCloud', sonarcloudResult)} ${getBadge('安全扫描', securityResult)} ${getBadge('构建', buildResult)} ${getBadge('E2E测试', e2eResult)}\n\n`;
             
             const results = {
               lint: lintResult,
               test: testResult,
+              sonarcloud: sonarcloudResult,
               security: securityResult,
               build: buildResult
             };
-            const allSuccess = ['lint', 'test', 'security', 'build'].every(r => 
+            const allSuccess = ['lint', 'test', 'sonarcloud', 'security', 'build'].every(r => 
               results[r] === 'success'
             );
             const e2eSuccess = e2eResult === 'success' || e2eResult === 'skipped';
@@ -627,12 +683,13 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
-    needs: [setup, build, e2e, security]
+    needs: [setup, build, e2e, security, sonarcloud]
     if: |
       always() &&
       needs.build.result == 'success' &&
       (needs.e2e.result == 'success' || needs.e2e.result == 'skipped') &&
       (needs.security.result == 'success' || needs.security.result == 'skipped') &&
+      (needs.sonarcloud.result == 'success' || needs.sonarcloud.result == 'skipped') &&
       github.event_name == 'workflow_dispatch' &&
       github.event.inputs.create_release == 'true'
     steps:
@@ -710,13 +767,14 @@ jobs:
   dependabot-notify:
     name: Dependabot通知
     runs-on: ubuntu-latest
-    needs: [setup, lint, test, security, build, e2e]
+    needs: [setup, lint, test, sonarcloud, security, build, e2e]
     if: |
       github.event_name == 'pull_request' &&
       github.actor == 'dependabot[bot]' &&
       needs.lint.result == 'success' &&
       needs.test.result == 'success' &&
-      needs.security.result == 'success' &&
+      (needs.sonarcloud.result == 'success' || needs.sonarcloud.result == 'skipped') &&
+      (needs.security.result == 'success' || needs.security.result == 'skipped') &&
       needs.build.result == 'success' &&
       (needs.e2e.result == 'success' || needs.e2e.result == 'skipped')
     permissions:
@@ -741,7 +799,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-    needs: [setup, lint, test, security, build, e2e]
+    needs: [setup, lint, test, sonarcloud, security, build, e2e]
     if: failure() && github.event_name != 'pull_request'
     steps:
       - name: 创建失败摘要
@@ -753,6 +811,7 @@ jobs:
           echo "| 🚀 | 环境准备 | ${{ needs.setup.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 🔍 | 代码检查 | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 🧪 | 单元测试 | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📊 | SonarCloud | ${{ needs.sonarcloud.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 🛡️ | 安全扫描 | ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 📦 | 构建 | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 🎭 | E2E 测试 | ${{ needs.e2e.result }} |" >> $GITHUB_STEP_SUMMARY

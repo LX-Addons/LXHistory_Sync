@@ -77,12 +77,70 @@ export async function decryptData(encryptedData: string, key: CryptoKey): Promis
   return decoder.decode(decrypted)
 }
 
-export async function hashPassword(password: string): Promise<string> {
+export interface PasswordHashResult {
+  salt: string
+  verificationData: string
+}
+
+export async function hashPassword(password: string): Promise<PasswordHashResult> {
+  const salt = generateSalt()
   const encoder = new TextEncoder()
-  const data = encoder.encode(password)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  )
+
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: encoder.encode(salt),
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    256
+  )
+
+  const hashArray = Array.from(new Uint8Array(derivedBits))
+  const verificationData = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+
+  return { salt, verificationData }
+}
+
+export async function verifyPasswordWithSalt(
+  password: string,
+  salt: string,
+  verificationData: string
+): Promise<boolean> {
+  const encoder = new TextEncoder()
+
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  )
+
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: encoder.encode(salt),
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    256
+  )
+
+  const hashArray = Array.from(new Uint8Array(derivedBits))
+  const computedVerificationData = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+
+  return computedVerificationData === verificationData
 }
 
 export function calculateKeyStrength(key: string): KeyStrength {
