@@ -519,20 +519,6 @@ describe('WebDAV Client', () => {
       expect(result).toEqual([])
     })
 
-    it('should throw on server error', async () => {
-      vi.useFakeTimers()
-      vi.mocked(configManager.getValidatedConfig).mockResolvedValue(mockConfig)
-      ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 500 })
-
-      const promise = syncFromCloud()
-      promise.catch(() => {})
-
-      await vi.runAllTimersAsync()
-
-      await expect(promise).rejects.toThrow()
-      vi.useRealTimers()
-    })
-
     it('should throw on non-404 error', async () => {
       vi.useFakeTimers()
       vi.mocked(configManager.getValidatedConfig).mockResolvedValue(mockConfig)
@@ -554,7 +540,6 @@ describe('WebDAV Client', () => {
 
       const promise = syncFromCloud()
 
-      // Prevent unhandled rejection
       promise.catch(() => {})
 
       await vi.runAllTimersAsync()
