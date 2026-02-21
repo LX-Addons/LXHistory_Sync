@@ -84,7 +84,7 @@ export async function fetchWithRetry(
     }
   }
 
-  throw lastError
+  throw lastError ?? new Error('Unknown error occurred')
 }
 
 export async function prepareUploadContent(
@@ -299,7 +299,7 @@ export async function withRetry<T>(
     }
   }
 
-  throw lastError
+  throw lastError ?? new Error('Unknown error occurred')
 }
 
 export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyncResult> {
@@ -323,7 +323,7 @@ export async function syncToCloud(localHistory: HistoryItem[]): Promise<CloudSyn
         })
 
         if (!response.ok) {
-          return handleHttpError(response) as CloudSyncResult
+          return handleHttpError(response)
         }
 
         return {
@@ -344,11 +344,6 @@ export async function syncFromCloud(): Promise<HistoryItem[]> {
         const response = await client.fetch(`/${WEBDAV_FILENAME}`, { method: 'GET' })
 
         if (response.status === 404) return []
-
-        if (!response.ok) {
-          const httpError = handleHttpError(response)
-          throwConfigError(httpError.error || '同步失败')
-        }
 
         const data = await parseResponseData(response, config)
 

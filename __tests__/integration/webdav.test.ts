@@ -42,7 +42,7 @@ describe('WebDAV 集成测试 (与真实服务通信)', () => {
       try {
         const check = await client.fetch('/', { method: 'PROPFIND', headers: { Depth: '0' } })
         if (!check.ok && check.status !== 207) return
-      } catch (e) {
+      } catch {
         return
       }
     }

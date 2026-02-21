@@ -154,6 +154,56 @@ describe('WebDAV Client', () => {
       expect(response.ok).toBe(true)
       vi.useRealTimers()
     })
+
+    it('should return 404 response without retry', async () => {
+      ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 404 })
+      const response = await fetchWithRetry('https://example.com', {})
+      expect(response.status).toBe(404)
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('should throw on 401 Unauthorized', async () => {
+      ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 401 })
+      await expect(fetchWithRetry('https://example.com', {})).rejects.toThrow(
+        'Authentication failed'
+      )
+    })
+
+    it('should throw non-retryable error after retry', async () => {
+      ;(global.fetch as Mock)
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce({ ok: false, status: 400 })
+
+      await expect(fetchWithRetry('https://example.com', {}, 3, 10)).rejects.toThrow()
+    })
+
+    it('should throw unknown error when maxRetries is 0', async () => {
+      await expect(fetchWithRetry('https://example.com', {}, 0, 10)).rejects.toThrow(
+        'Unknown error occurred'
+      )
+    })
+
+    it('should throw non-retryable error on second attempt', async () => {
+      const nonRetryableError = new Error('Non-retryable')
+      Object.assign(nonRetryableError, { shouldRetry: false })
+      ;(global.fetch as Mock)
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockRejectedValueOnce(nonRetryableError)
+
+      await expect(fetchWithRetry('https://example.com', {}, 3, 10)).rejects.toThrow(
+        'Non-retryable'
+      )
+    })
+
+    it('should throw error when not retryable and attempt > 0', async () => {
+      ;(global.fetch as Mock)
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockRejectedValueOnce(new Error('Some unknown error'))
+
+      await expect(fetchWithRetry('https://example.com', {}, 3, 10)).rejects.toThrow(
+        'Some unknown error'
+      )
+    })
   })
 
   describe('prepareUploadContent', () => {
@@ -337,6 +387,15 @@ describe('WebDAV Client', () => {
       await expect(executeSync(operation)).rejects.toThrow()
       expect(configManager.clearSessionConfig).toHaveBeenCalled()
     })
+
+    it('should re-throw error with recovery property', async () => {
+      vi.mocked(configManager.getValidatedConfig).mockResolvedValue(mockConfig)
+      const errorWithRecovery = Object.assign(new Error('Auth error'), { recovery: 'Retry' })
+      const operation = vi.fn().mockRejectedValue(errorWithRecovery)
+
+      await expect(executeSync(operation)).rejects.toThrow('Auth error')
+      expect(configManager.clearSessionConfig).toHaveBeenCalled()
+    })
   })
 
   describe('fetchRemoteHistory', () => {
@@ -482,14 +541,19 @@ describe('WebDAV Client', () => {
       expect(result).toEqual([])
     })
 
-    it('should throw on fetch error', async () => {
+    it('should throw on authentication error', async () => {
+      vi.mocked(configManager.getValidatedConfig).mockResolvedValue(mockConfig)
+      ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 401 })
+
+      await expect(syncFromCloud()).rejects.toThrow()
+    })
+
+    it('should throw on server error', async () => {
       vi.useFakeTimers()
       vi.mocked(configManager.getValidatedConfig).mockResolvedValue(mockConfig)
       ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 500 })
 
       const promise = syncFromCloud()
-
-      // Prevent unhandled rejection
       promise.catch(() => {})
 
       await vi.runAllTimersAsync()
