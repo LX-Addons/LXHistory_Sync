@@ -218,7 +218,7 @@ export function getIVLength(algorithm: string): number {
 
 export function createAlgorithm(
   type: string,
-  iv: Uint8Array
+  iv: Uint8Array<ArrayBuffer>
 ): AlgorithmIdentifier | AesCtrParams | AesGcmParams {
   const encoder = new TextEncoder()
 
