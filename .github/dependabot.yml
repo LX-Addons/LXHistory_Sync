@@ -22,43 +22,16 @@ updates:
       semver-minor-days: 7
       semver-patch-days: 3
     groups:
-      production-patch:
+      production-dependencies:
         dependency-type: "production"
         update-types:
           - "patch"
-      production-minor:
-        dependency-type: "production"
-        update-types:
           - "minor"
       development-dependencies:
         dependency-type: "development"
         update-types:
           - "minor"
           - "patch"
-        exclude-patterns:
-          - "vitest*"
-          - "eslint*"
-          - "@typescript-eslint/*"
-          - "@testing-library/*"
-          - "@types/*"
-          - "prettier*"
-      testing-framework:
-        patterns:
-          - "vitest*"
-          - "@vitest/*"
-          - "happy-dom"
-          - "jsdom"
-      linting-tools:
-        patterns:
-          - "eslint*"
-          - "@typescript-eslint/*"
-          - "prettier*"
-      testing-library:
-        patterns:
-          - "@testing-library/*"
-      type-definitions:
-        patterns:
-          - "@types/*"
     ignore:
       - dependency-name: "plasmo"
         update-types: ["version-update:semver-major"]
