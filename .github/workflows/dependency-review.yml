@@ -31,7 +31,7 @@ jobs:
         with:
           comment-summary-in-pr: always
           fail-on-severity: moderate
-          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-2.1, LGPL-3.0
+          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, Unlicense, WTFPL, CC0-1.0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: '安装依赖'
@@ -105,16 +105,29 @@ jobs:
           echo "## 🔍 脚本安全检查" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          SUSPICIOUS_SCRIPTS=$(npm ls --depth=0 --json 2>/dev/null | jq -r '.dependencies | to_entries[] | select(.value.scripts != null) | "\(.key): \(.value.scripts | keys | join(", "))"' || true)
+          LIFECYCLE_SCRIPTS="preinstall|postinstall|preuninstall|postuninstall|preprepare|postprepare|prepack|postpack"
           
-          if [ -n "$SUSPICIOUS_SCRIPTS" ]; then
-            echo "⚠️ 发现包含脚本的依赖：" >> $GITHUB_STEP_SUMMARY
+          SUSPICIOUS_PKGS=""
+          
+          for pkg_dir in node_modules/*/; do
+            if [ -f "${pkg_dir}package.json" ]; then
+              pkg_name=$(basename "$pkg_dir")
+              scripts=$(jq -r '.scripts // empty | to_entries[] | select(.key | test("'^$LIFECYCLE_SCRIPTS'$")) | .key' "${pkg_dir}package.json" 2>/dev/null || true)
+              if [ -n "$scripts" ]; then
+                script_list=$(echo "$scripts" | tr '\n' ',' | sed 's/,$//')
+                SUSPICIOUS_PKGS="${SUSPICIOUS_PKGS}${pkg_name}: ${script_list}\n"
+              fi
+            fi
+          done
+          
+          if [ -n "$SUSPICIOUS_PKGS" ]; then
+            echo "⚠️ 发现包含生命周期脚本的依赖：" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "$SUSPICIOUS_SCRIPTS" >> $GITHUB_STEP_SUMMARY
+            echo -e "$SUSPICIOUS_PKGS" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "scripts_status=warning" >> $GITHUB_OUTPUT
           else
-            echo "✅ 未发现包含可疑脚本的依赖" >> $GITHUB_STEP_SUMMARY
+            echo "✅ 未发现包含生命周期脚本的依赖" >> $GITHUB_STEP_SUMMARY
             echo "scripts_status=ok" >> $GITHUB_OUTPUT
           fi
 
