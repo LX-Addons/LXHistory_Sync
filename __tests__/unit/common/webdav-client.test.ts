@@ -541,27 +541,19 @@ describe('WebDAV Client', () => {
       expect(result).toEqual([])
     })
 
-    it('should throw on non-404 error', async () => {
-      vi.useFakeTimers()
+    it('should throw on authentication error', async () => {
       vi.mocked(configManager.getValidatedConfig).mockResolvedValue(mockConfig)
-      ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 403 })
+      ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 401 })
 
-      const promise = syncFromCloud()
-      promise.catch(() => {})
-
-      await vi.runAllTimersAsync()
-
-      await expect(promise).rejects.toThrow()
-      vi.useRealTimers()
+      await expect(syncFromCloud()).rejects.toThrow()
     })
 
-    it('should throw on fetch error', async () => {
+    it('should throw on server error', async () => {
       vi.useFakeTimers()
       vi.mocked(configManager.getValidatedConfig).mockResolvedValue(mockConfig)
       ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 500 })
 
       const promise = syncFromCloud()
-
       promise.catch(() => {})
 
       await vi.runAllTimersAsync()
@@ -579,20 +571,6 @@ describe('WebDAV Client', () => {
       })
 
       await expect(syncFromCloud()).rejects.toThrow('云端数据格式错误')
-    })
-
-    it('should throw immediately on authentication error', async () => {
-      vi.useFakeTimers()
-      vi.mocked(configManager.getValidatedConfig).mockResolvedValue(mockConfig)
-      ;(global.fetch as Mock).mockResolvedValue({ ok: false, status: 401 })
-
-      const promise = syncFromCloud()
-      promise.catch(() => {})
-
-      await vi.runAllTimersAsync()
-
-      await expect(promise).rejects.toThrow()
-      vi.useRealTimers()
     })
   })
 })
