@@ -176,6 +176,12 @@ describe('WebDAV Client', () => {
 
       await expect(fetchWithRetry('https://example.com', {}, 3, 10)).rejects.toThrow()
     })
+
+    it('should throw unknown error when maxRetries is 0', async () => {
+      await expect(fetchWithRetry('https://example.com', {}, 0, 10)).rejects.toThrow(
+        'Unknown error occurred'
+      )
+    })
   })
 
   describe('prepareUploadContent', () => {
