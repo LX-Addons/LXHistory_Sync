@@ -720,9 +720,9 @@ jobs:
           CURRENT_VERSION="${{ steps.version.outputs.version }}"
           
           if [ -z "$PREVIOUS_TAG" ]; then
-            NOTES=$(npx git-cliff --strip header 2>/dev/null || echo "初始发布 v${CURRENT_VERSION}")
+            NOTES=$(npx --yes git-cliff --strip header 2>/dev/null || echo "初始发布 v${CURRENT_VERSION}")
           else
-            NOTES=$(npx git-cliff "${PREVIOUS_TAG}..HEAD" --strip header 2>/dev/null || echo "发布 v${CURRENT_VERSION}")
+            NOTES=$(npx --yes git-cliff "${PREVIOUS_TAG}..HEAD" --strip header 2>/dev/null || echo "发布 v${CURRENT_VERSION}")
           fi
           
           if [ -z "$NOTES" ] || [ "$NOTES" = "## [Unreleased]" ]; then
