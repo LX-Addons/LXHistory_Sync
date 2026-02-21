@@ -30,10 +30,12 @@ jobs:
         uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261 # v4.8.2
         with:
           comment-summary-in-pr: always
+          fail-on-severity: moderate
+          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, Unlicense, WTFPL, CC0-1.0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: '安装依赖'
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: '安全审计'
         id: audit
@@ -96,6 +98,39 @@ jobs:
           echo "size=$NODE_MODULES_SIZE" >> $GITHUB_OUTPUT
           echo "count=$DEPENDENCY_COUNT" >> $GITHUB_OUTPUT
 
+      - name: '检查可疑脚本'
+        id: scripts
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 脚本安全检查" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          LIFECYCLE_SCRIPTS="preinstall|postinstall|preuninstall|postuninstall|preprepare|postprepare|prepack|postpack"
+          
+          SUSPICIOUS_PKGS=""
+          
+          for pkg_dir in node_modules/*/; do
+            if [ -f "${pkg_dir}package.json" ]; then
+              pkg_name=$(basename "$pkg_dir")
+              scripts=$(jq -r '.scripts // empty | to_entries[] | select(.key | test("'^$LIFECYCLE_SCRIPTS'$")) | .key' "${pkg_dir}package.json" 2>/dev/null || true)
+              if [ -n "$scripts" ]; then
+                script_list=$(echo "$scripts" | tr '\n' ',' | sed 's/,$//')
+                SUSPICIOUS_PKGS="${SUSPICIOUS_PKGS}${pkg_name}: ${script_list}\n"
+              fi
+            fi
+          done
+          
+          if [ -n "$SUSPICIOUS_PKGS" ]; then
+            echo "⚠️ 发现包含生命周期脚本的依赖：" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo -e "$SUSPICIOUS_PKGS" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "scripts_status=warning" >> $GITHUB_OUTPUT
+          else
+            echo "✅ 未发现包含生命周期脚本的依赖" >> $GITHUB_STEP_SUMMARY
+            echo "scripts_status=ok" >> $GITHUB_OUTPUT
+          fi
+
       - name: '创建 PR 评论'
         if: github.event_name == 'pull_request'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
@@ -105,6 +140,7 @@ jobs:
             const licenseStatus = '${{ steps.license.outputs.license_status }}';
             const depSize = '${{ steps.size.outputs.size }}';
             const depCount = '${{ steps.size.outputs.count }}';
+            const scriptsStatus = '${{ steps.scripts.outputs.scripts_status }}';
 
             const statusEmoji = (status) => {
               if (status === 'clean' || status === 'ok') return '✅';
@@ -117,9 +153,10 @@ jobs:
             body += '|-------|--------|---------|\n';
             body += `| 安全审计 | ${statusEmoji(auditStatus)} | ${auditStatus === 'clean' ? '无漏洞' : '需要审查'} |\n`;
             body += `| 许可证检查 | ${statusEmoji(licenseStatus)} | ${licenseStatus === 'ok' ? '合规' : '检测到违规'} |\n`;
+            body += `| 脚本检查 | ${statusEmoji(scriptsStatus)} | ${scriptsStatus === 'ok' ? '无风险' : '需要审查'} |\n`;
             body += `| 依赖信息 | 📦 | ${depCount} 个直接依赖，总体积 ${depSize} |\n`;
 
-            if (auditStatus === 'warning' || licenseStatus === 'violation') {
+            if (auditStatus === 'warning' || licenseStatus === 'violation' || scriptsStatus === 'warning') {
               body += '\n⚠️ **需要处理**：请查看 [工作流摘要](' + process.env.GITHUB_SERVER_URL + '/' + process.env.GITHUB_REPOSITORY + '/actions/runs/' + process.env.GITHUB_RUN_ID + ') 中的审计结果。\n';
             }
 
