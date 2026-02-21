@@ -61,7 +61,7 @@ export async function fetchWithRetry(
       lastError = error instanceof Error ? error : new Error(String(error))
 
       if (lastError.message === 'Authentication failed') {
-        throw lastError ?? new Error('Unknown error occurred')
+        throw lastError
       }
 
       if ('shouldRetry' in lastError && lastError.shouldRetry === false) {
