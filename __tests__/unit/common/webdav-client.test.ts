@@ -182,6 +182,28 @@ describe('WebDAV Client', () => {
         'Unknown error occurred'
       )
     })
+
+    it('should throw non-retryable error on second attempt', async () => {
+      const nonRetryableError = new Error('Non-retryable')
+      Object.assign(nonRetryableError, { shouldRetry: false })
+      ;(global.fetch as Mock)
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockRejectedValueOnce(nonRetryableError)
+
+      await expect(fetchWithRetry('https://example.com', {}, 3, 10)).rejects.toThrow(
+        'Non-retryable'
+      )
+    })
+
+    it('should throw error when not retryable and attempt > 0', async () => {
+      ;(global.fetch as Mock)
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockRejectedValueOnce(new Error('Some unknown error'))
+
+      await expect(fetchWithRetry('https://example.com', {}, 3, 10)).rejects.toThrow(
+        'Some unknown error'
+      )
+    })
   })
 
   describe('prepareUploadContent', () => {

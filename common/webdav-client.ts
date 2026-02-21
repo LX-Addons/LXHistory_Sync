@@ -345,11 +345,6 @@ export async function syncFromCloud(): Promise<HistoryItem[]> {
 
         if (response.status === 404) return []
 
-        if (!response.ok) {
-          const httpError = handleHttpError(response)
-          throwConfigError(httpError.error || '同步失败')
-        }
-
         const data = await parseResponseData(response, config)
 
         if (!Array.isArray(data)) {
