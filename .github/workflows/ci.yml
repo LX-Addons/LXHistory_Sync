@@ -232,7 +232,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: 上传测试产物
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: test-coverage-node${{ matrix.node-version }}
           path: |
@@ -270,7 +270,7 @@ jobs:
 
       - name: 下载测试覆盖率产物
         if: steps.check_sonar.outputs.configured == 'true'
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
         with:
           name: test-coverage-node20
           path: .
@@ -284,7 +284,7 @@ jobs:
 
       - name: 上传 SonarCloud 产物
         if: always() && steps.check_sonar.outputs.configured == 'true'
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: sonarcloud-report
           path: .scannerwork/
@@ -476,7 +476,7 @@ jobs:
           fi
 
       - name: 上传构建产物
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: extension-${{ steps.version.outputs.version }}
           path: build/
@@ -526,7 +526,7 @@ jobs:
         run: npm ci --prefer-offline --ignore-scripts
 
       - name: 下载构建产物
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
         with:
           pattern: extension-*
           path: build/
@@ -551,7 +551,7 @@ jobs:
 
       - name: 上传 Playwright 报告
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: playwright-report
           path: playwright-report/
@@ -707,7 +707,7 @@ jobs:
           echo "name=$NAME" >> $GITHUB_OUTPUT
 
       - name: 下载构建产物
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3
         with:
           pattern: extension-*
           path: build/
